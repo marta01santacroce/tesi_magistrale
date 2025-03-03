@@ -37,18 +37,15 @@ language_dict = {
     "ta": "Tamil",
     "tr": "Turkish"
 }
+  
+''' 
+Parametri da passare in fase di esecuzione:
 
-      
-def documents_list(doc, all_documents):
+    1) il path della cartella contenente i file pdf da memorizzare OPPURE il path del singolo file pdf da memorizzare
 
-    for page_num in range(len(doc)):
-        text = doc[page_num].get_text("text")
-        if text.strip():
-            all_documents.append(Document(
-                page_content=text,
-                metadata={"source": os.path.basename(path), "page_number": page_num + 1}
-            ))      
+    2) 'Y' se si vuole inizializzare il DB OPPURE 'N' se non si vuole inizializzare il DB
 
+'''
 if __name__ == "__main__":
 
     cursor, conn = DB.connect_db()
@@ -117,7 +114,7 @@ if __name__ == "__main__":
                     ))
 
     #Dividere in chunk
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=20)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=10)
     chunks = text_splitter.split_documents(all_documents)
 
     #Salvare embeddings
