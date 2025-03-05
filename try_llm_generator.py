@@ -13,14 +13,14 @@ model = AutoModelForCausalLM.from_pretrained(READER_MODEL_NAME)
 
 
 READER_LLM = pipeline(
-    model=model,
-    tokenizer=tokenizer,
-    task="text-generation",
-    do_sample=True,
-    temperature=0.2,
-    repetition_penalty=1.1,
-    return_full_text=False,
-    max_new_tokens=1000,
+    model = model,
+    tokenizer = tokenizer,
+    task = "text-generation",
+    do_sample = True,
+    temperature = 0.2,
+    repetition_penalty = 1.1,
+    return_full_text = False,
+    max_new_tokens = 1000,
 )
 
 
@@ -99,6 +99,11 @@ if __name__ == "__main__":
         # Recupera i documenti pertinenti
         docs = retrieve_documents(query)
 
+        # sorgenti + pagina
+        sources_with_pages = {(doc.metadata["source"], doc.metadata["page"]) for doc in docs}
+
+
+
         retrieved_docs_text = [doc.page_content for doc in docs]  # We only need the text of the documents
 
         context = "\nExtracted documents:\n"
@@ -111,7 +116,14 @@ if __name__ == "__main__":
 
             # Genera la risposta
             answer = READER_LLM(final_prompt)[0]["generated_text"]
+            print("\n" + "="*150)
+            print("\nRisposta Generata:\n")
             print(answer)
+
+            print("\nFonti utilizzate:\n")
+            for source, page in sources_with_pages:
+                print(f"🔹 Fonte: {source}, Pagina: {page}")
+
 
 
         else:
