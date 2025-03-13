@@ -25,28 +25,28 @@ READER_LLM = pipeline(
 
 
 # Prompt con memoria
-prompt_in_chat_format = [
+prompt_in_chat_format  = [
     {
         "role": "system",
-        "content": """Using the information contained in the context and previous conversation history, give a comprehensive answer to the question.
-                    Respond only to the question asked, response should be concise and relevant to the question.
-                    Provide the number of the source document when relevant.
-                    If the answer cannot be deduced from the context, do not give an answer.""",
+        "content": """You are an AI assistant specialized in answering questions based on the provided context.  
+        Follow these guidelines:  
+        - Use only the given context to generate your answer. 
+        - Provide a clear, concise, and relevant response. Avoid unnecessary details.  
+        - Do NOT mention the context, sources, or any document references in your response.    
+        """,
     },
     {
         "role": "user",
-        "content": """Context:
-        {context}
-        ---
-        Now here is the question you need to answer.
+        "content": """Here is the relevant context:  
+        {context}  
+        ---  
+        Now, answer the following question based strictly on the context.  
 
         Question: {question}""",
     },
 ]
 
-RAG_PROMPT_TEMPLATE = tokenizer.apply_chat_template(
-    prompt_in_chat_format, tokenize=False, add_generation_prompt=True
-)
+RAG_PROMPT_TEMPLATE = tokenizer.apply_chat_template(prompt_in_chat_format, tokenize=False, add_generation_prompt=True)
 
 
 
@@ -123,7 +123,6 @@ if __name__ == "__main__":
             print("\nFonti utilizzate:\n")
             for source, page in sources_with_pages:
                 print(f"🔹 Fonte: {source}, Pagina: {page}")
-
 
 
         else:

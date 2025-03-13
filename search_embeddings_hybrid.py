@@ -2,6 +2,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langdetect.lang_detect_exception import LangDetectException
 from langdetect import detect
 import DB
+from sentence_transformers import CrossEncoder
 
 # Dizionario con sigle delle lingue e i nomi delle lingue supportate
 language_dict = {
@@ -31,6 +32,9 @@ language_dict = {
     "tr": "Turkish"
 }
 
+# Carica il modello di cross-encoder per assegnare un nuovo punteggio ai risultati. Prenderà in input la query e ogni risultato testuale, e calcolerà un punteggio di rilevanza ordinando i risultati
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
 def get_source (elem):
     return str(elem[0])
 
@@ -48,6 +52,25 @@ def get_semantic_score (elem):
 
 def get_hybrid_score (elem):
     return str(elem[5])
+
+def rerank_results(query, results):
+    """
+    Reranka i risultati usando un modello Cross-Encoder.
+    """
+    if not results:
+        return []
+
+    # Prepara i pair (query, documento)
+    pairs = [(query, get_text(res)) for res in results]
+
+    # Ottiene i punteggi dal modello cross-encoder
+    scores = reranker.predict(pairs)
+
+    # Associa i punteggi ai risultati
+    reranked_results = sorted(zip(results, scores), key=lambda x: x[1], reverse=True)
+
+    # Restituisce i risultati ordinati
+    return [res for res, _ in reranked_results]
 
 def hybrid_search(cursor, query,query_embedding_str):
 
@@ -67,7 +90,7 @@ def hybrid_search(cursor, query,query_embedding_str):
     query_sql = """
     WITH bm25_results AS (
         SELECT source, content, page_number, 
-            ts_rank_cd(tsv_content, to_tsquery(%s, %s) , 0) AS rank_bm25
+            ts_rank_cd(tsv_content, to_tsquery(%s, %s)) AS rank_bm25
         FROM embeddings
         WHERE tsv_content @@ to_tsquery(%s, %s)
         ORDER BY rank_bm25 DESC
@@ -86,11 +109,11 @@ def hybrid_search(cursor, query,query_embedding_str):
         COALESCE(b.page_number, s.page_number) AS page_number,
         COALESCE(b.rank_bm25, 0) AS rank_bm25,
         COALESCE(s.rank_semantic, 0) AS rank_semantic,
-        (0.3 * COALESCE(b.rank_bm25, 0) +1 * COALESCE(s.rank_semantic, 0)) AS final_rank
+        (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) AS final_rank
     FROM bm25_results b
     FULL OUTER JOIN semantic_results s 
     ON b.source = s.source AND b.content = s.content AND b.page_number = s.page_number
-    WHERE (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) > 0.2
+    WHERE (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) > 0.9
     ORDER BY final_rank DESC
     LIMIT 10;
     """
@@ -108,9 +131,9 @@ if __name__ == "__main__":
     # Modello per embeddings
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
 
-    print("\nHybrid Search (BM25 + Cosine Similarity with reranking)")
+    print("\nHybrid Search (BM25 + Cosine Similarity)")
 
-    print("\nType your query and press Enter. Press Enter without text to exit.")
+    #print("\nType your query and press Enter or press Enter without text to exit.")
 
     while True:
         # Query dinamica dall'utente
@@ -129,9 +152,15 @@ if __name__ == "__main__":
 
         results = hybrid_search(cursor, query,query_embedding_str)
 
+        # print results con reranking
+        print("\nDEBUG---print results con reranking\n")
+
         if results:
-           
-            for indice, elem in enumerate(results):
+            
+            # Applica il reranking
+            reranked_results = rerank_results(query, results)
+
+            for indice, elem in enumerate(reranked_results):
                 
                 indice += 1
                 print("\n" + "="*150)
@@ -141,7 +170,7 @@ if __name__ == "__main__":
                 print("\n-PAGE_NUMBER: " + get_page(elem))
                 print("\n-BM_25_SCORE: " + get_bm25_score(elem))
                 print("\n-SEMANTIC_SCORE: " + get_semantic_score(elem))
-                print("\n-HYBRID_SCORE (0.3 * BM_25_SCORE + 0.7 * SEMANTIC_SCORE): " + get_hybrid_score(elem))
+                print("\n-HYBRID_SCORE (0.3 * BM_25_SCORE + 1 * SEMANTIC_SCORE): " + get_hybrid_score(elem))
 
         else:
             print("\nNo results found.")

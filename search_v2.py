@@ -58,6 +58,10 @@ def rerank_results(query, results):
 
 def hybrid_search(cursor, query,query_embedding_str):
 
+    """
+    Trova i chunks con uno score hybrido
+    """
+
     # Rileva la lingua in automatico
     try:
         detected_language = detect(query)
@@ -82,7 +86,7 @@ def hybrid_search(cursor, query,query_embedding_str):
     ),
     semantic_results AS (
         SELECT source, content, page_number, 
-            1 - (embedding <=> %s) / 2 AS rank_semantic
+            1 - (embedding <=> %s) / 2  AS rank_semantic
         FROM embeddings
         ORDER BY rank_semantic DESC
         LIMIT 100
@@ -93,11 +97,11 @@ def hybrid_search(cursor, query,query_embedding_str):
         COALESCE(b.page_number, s.page_number) AS page_number,
         COALESCE(b.rank_bm25, 0) AS rank_bm25,
         COALESCE(s.rank_semantic, 0) AS rank_semantic,
-        (0.3 * COALESCE(b.rank_bm25, 0) +1 * COALESCE(s.rank_semantic, 0)) AS final_rank
+        (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) AS final_rank
     FROM bm25_results b
     FULL OUTER JOIN semantic_results s 
     ON b.source = s.source AND b.content = s.content AND b.page_number = s.page_number
-    WHERE (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) > 0.2
+    WHERE (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) > 0.9
     ORDER BY final_rank DESC
     LIMIT 10;
     """
