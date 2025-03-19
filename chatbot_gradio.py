@@ -6,50 +6,53 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 import torch
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain.schema import AIMessage, HumanMessage
+import re
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve the API key
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+client = OpenAI()
+
+MAX_NEW_TOKENS = 4096  # Limita la generazione del modello  
+MAX_LENGTH = 4096   #128000 maximum sequence length for the model
+# Inizializza la memoria della conversazione
+message_history = ChatMessageHistory()
 
 
-READER_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0" # Load Model
-MAX_NEW_TOKENS = 1000  # Limita la generazione del modello
-MAX_LENGTH = 2048 # maximum sequence length for the model
-
-tokenizer = AutoTokenizer.from_pretrained(READER_MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(READER_MODEL_NAME)
-
-# Create LLM pipeline
-READER_LLM = pipeline(
-    model=model,
-    tokenizer=tokenizer,
-    task="text-generation",
-    do_sample=True, 
-    temperature=0.2,
-    repetition_penalty = 1.1,
-    return_full_text=False,
-    max_new_tokens=MAX_NEW_TOKENS,
-)
-
-
-# RAG Prompt Template
-prompt_rag = [
-    {
-        "role": "system",
-        "content": """You are an AI assistant specialized in answering questions based on the provided context.  
-        Follow these guidelines:  
-        - Use only the given context to generate your answer. 
-        - Provide a clear, concise, and relevant response. Avoid unnecessary details.  
-        - Do NOT mention the context, sources, or any document references in your response.    
-        """,
-    },
-    {
-        "role": "user",
-        "content": """Here is the relevant context:  
-        {context}  
-        ---  
-        Now, answer the following question based strictly on the context.  
-
-        Question: {question}""",
-    },
+# RAG Prompt Template with context
+prompt_rag_context = [
+    {"role": "developer", "content": "You are an AI assistant specialized in answering questions based on the provided context.\nFollow these guidelines:\n- Use only the given context to generate your answer.\n- Provide a clear and relevant response. Avoid unnecessary details.\n- Do NOT mention the context, sources, or any document references in your response."},
+    {"role": "user", "content": "Previous conversation:\n{chat_history}\n---\nHere is the relevant context:\n{context}\n---\nNow, answer the following question based strictly on the context and on previous conversation .\n\nQuestion: {question}"},
 ]
-RAG_PROMPT_TEMPLATE = tokenizer.apply_chat_template(prompt_rag, tokenize=False, add_generation_prompt=True)
+# RAG Prompt Template no context
+prompt_rag_no_context = [
+    {"role": "developer", "content": "You are an AI assistant specialized in answering questions based on the past history.Provide a clear and relevant response. Avoid unnecessary details.\n"},
+    {"role": "user", "content": "Previous conversation:\n{chat_history}\n---\nNow, answer the following question based on previous conversation and your konwladge .\n\nQuestion: {question}"}
+]
+
+def gpt_generate(chat_history, question, prompt, context=""):
+
+    formatted_prompt = [
+        {"role": msg["role"], "content": msg["content"].format(context=context, chat_history=chat_history, question=question)}
+        for msg in prompt
+    ]
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=formatted_prompt
+    )
+
+    generated_text = completion.choices[0].message.content
+
+    return generated_text
+
 
 
 def retrieve_documents(query):
@@ -86,51 +89,41 @@ def chatbot_response(query,history):
 
     """Gestisce la risposta del chatbot. Ignora input vuoti."""
     if not query.strip():  # Evita invii di stringhe vuote
-       return [{"role": "assistant", "content": "⚠️ Empty user message"}]
+       return [{"role": "system", "content": "⚠️ Empty user message"}]
 
     else:
         docs = retrieve_documents(query)
         sources_with_pages = {(doc.metadata["source"], doc.metadata["page"]) for doc in docs}
-
         retrieved_docs_text = [doc.page_content for doc in docs]
         context = "\nExtracted documents:\n" + "".join([f"Document {str(i)}\n" + doc for i, doc in enumerate(retrieved_docs_text)])
 
-    
+        # Get conversation history
+        chat_history = "\n".join([
+            f"User: {msg.content}" if isinstance(msg, HumanMessage) else f"AI: {msg.content}"
+            for msg in message_history.messages
+        ]) or "No previous conversation."
+
+  
         if retrieved_docs_text:
 
-            final_prompt = RAG_PROMPT_TEMPLATE.format(question=query, context=context[:MAX_LENGTH])
-
-            answer = READER_LLM(final_prompt)[0]["generated_text"]
-
+            answer = gpt_generate(chat_history, query, prompt_rag_context, context)
             sources_text = "\n".join([f"🔹 {source}, Page {page}" for source, page in sources_with_pages])
-            
-            output = answer + "\n\n" + sources_text
+            answer = answer + "\n\n" + sources_text
+
 
             #print("DEBUG----output\n" + str(output))
 
         else:
+            answer = gpt_generate(chat_history, query, prompt_rag_no_context, context)
+            
 
-            # Costruisce dinamicamente il messaggio con la query
-            prompt_llm = [
-                {
-                    "role": "system",
-                    "content": "You are a friendly chatbot and an assistant for question-answering tasks. you must answer the user query.",
-                },
-                {   
-                    "role": "user", 
-                    "content": f"Query: {query}"
-                },  
-            ]
 
-            # Genera il prompt con il messaggio aggiornato
-            LLM_PROMPT_TEMPLATE = READER_LLM.tokenizer.apply_chat_template(prompt_llm, tokenize=False, add_generation_prompt=True)
-
-            # Genera la risposta
-            output = READER_LLM(LLM_PROMPT_TEMPLATE, max_new_tokens=MAX_NEW_TOKENS, do_sample=True, temperature=0.5, top_k=50, top_p=0.95)
-            #print("DEBUG--llm: \n")
-            #print(output)
+        # Update message history
+        message_history.add_user_message(query)
+        message_history.add_ai_message(answer)
         
-        return [{"role": "assistant", "content": output}]
+        return [{"role": "system", "content": answer}]
+        
 
 # Gradio Interface
 chatbot_ui = gr.ChatInterface(

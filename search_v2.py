@@ -101,9 +101,9 @@ def hybrid_search(cursor, query,query_embedding_str):
     FROM bm25_results b
     FULL OUTER JOIN semantic_results s 
     ON b.source = s.source AND b.content = s.content AND b.page_number = s.page_number
-    WHERE (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) > 0.9
+    WHERE (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) > 0.92
     ORDER BY final_rank DESC
-    LIMIT 10;
+    LIMIT 20;
     """
     # Esecuzione della query
     cursor.execute(query_sql, (detected_language,query,detected_language, query, query_embedding_str))
