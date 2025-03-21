@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Retrieve the API key
+# Retrieve your API key from your .env file
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI()
@@ -69,8 +69,8 @@ def retrieve_documents(query):
     # Converte i risultati in oggetti Document di LangChain
     documents = [
         Document(
-            page_content=res[1],
-            metadata={
+            page_content = res[1],
+            metadata = {
                 "source": res[0],
                 "page": res[2],
                 "bm25_score": res[3],
@@ -89,40 +89,37 @@ def chatbot_response(query,history):
 
     """Gestisce la risposta del chatbot. Ignora input vuoti."""
     if not query.strip():  # Evita invii di stringhe vuote
-       return [{"role": "system", "content": "⚠️ Empty user message"}]
+        return [{"role": "assistant", "content": "⚠️ Empty user message. Please write a question for me!"}]
+       
+    
+    docs = retrieve_documents(query)
+    sources_with_pages = {(doc.metadata["source"], doc.metadata["page"]) for doc in docs}
+    retrieved_docs_text = [doc.page_content for doc in docs]
+    context = "\nExtracted documents:\n" + "".join([f"Document {str(i)}\n" + doc for i, doc in enumerate(retrieved_docs_text)])
+
+    # Get conversation history
+    chat_history = "\n".join([
+        f"user: {msg.content}" if isinstance(msg, HumanMessage) else f"assistant: {msg.content}"
+        for msg in message_history.messages
+    ]) or "No previous conversation."
+
+
+    if retrieved_docs_text:
+
+        answer = gpt_generate(chat_history, query, prompt_rag_context, context)
+        sources_text = "\n".join([f"🔹 {source}, Page {page}" for source, page in sources_with_pages])
+        answer = answer + "\n\n" + sources_text
 
     else:
-        docs = retrieve_documents(query)
-        sources_with_pages = {(doc.metadata["source"], doc.metadata["page"]) for doc in docs}
-        retrieved_docs_text = [doc.page_content for doc in docs]
-        context = "\nExtracted documents:\n" + "".join([f"Document {str(i)}\n" + doc for i, doc in enumerate(retrieved_docs_text)])
-
-        # Get conversation history
-        chat_history = "\n".join([
-            f"User: {msg.content}" if isinstance(msg, HumanMessage) else f"AI: {msg.content}"
-            for msg in message_history.messages
-        ]) or "No previous conversation."
-
-  
-        if retrieved_docs_text:
-
-            answer = gpt_generate(chat_history, query, prompt_rag_context, context)
-            sources_text = "\n".join([f"🔹 {source}, Page {page}" for source, page in sources_with_pages])
-            answer = answer + "\n\n" + sources_text
-
-
-            #print("DEBUG----output\n" + str(output))
-
-        else:
-            answer = gpt_generate(chat_history, query, prompt_rag_no_context, context)
-            
-
-
-        # Update message history
-        message_history.add_user_message(query)
-        message_history.add_ai_message(answer)
+        answer = gpt_generate(chat_history, query, prompt_rag_no_context, context)
         
-        return [{"role": "system", "content": answer}]
+
+    # Update message history
+    message_history.add_user_message(query)
+    message_history.add_ai_message(answer)
+    
+    return [{"role": "assistant", "content": answer}]
+    
         
 
 # Gradio Interface
@@ -133,9 +130,9 @@ chatbot_ui = gr.ChatInterface(
     title = "🕷️RAG Chatbot🕷️",
     theme ='allenai/gradio-theme',
     show_progress ='full',
-    fill_height =True,
-    save_history =True,
-    flagging_mode ="manual",
+    fill_height = True,
+    save_history = True,
+    flagging_mode = "manual",
 
 )
 
