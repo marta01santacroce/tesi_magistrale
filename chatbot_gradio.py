@@ -1,14 +1,11 @@
-
 import gradio as gr  #versione 5.20.1
 import DB
 import search_v2
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 import torch
 from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain.schema import AIMessage, HumanMessage
-import re
+from langchain.schema import HumanMessage
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
