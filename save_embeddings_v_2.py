@@ -9,6 +9,7 @@ from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
 import DB
 
+CHUNK_SIZE=512
 
 # Dizionario con sigle delle lingue e i nomi delle lingue supportate
 language_dict = {
@@ -114,7 +115,7 @@ if __name__ == "__main__":
                     ))
 
     #Dividere in chunk
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=10)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=10)
     chunks = text_splitter.split_documents(all_documents)
 
     #Salvare embeddings
