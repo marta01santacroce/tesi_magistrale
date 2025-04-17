@@ -1,3 +1,4 @@
+
 import gradio as gr  #versione 5.20.1
 import DB
 import search_v2
@@ -9,6 +10,8 @@ from langchain.schema import HumanMessage
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+from urllib.parse import quote
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,6 +23,7 @@ client = OpenAI()
 
 MAX_NEW_TOKENS = 4096  # Limita la generazione del modello  
 MAX_LENGTH = 4096   #128000 maximum sequence length for the model
+CHUNK_SIZE=512
 # Inizializza la memoria della conversazione
 message_history = ChatMessageHistory()
 
@@ -82,15 +86,12 @@ def retrieve_documents(query):
 
 
 # Chatbot function
-def chatbot_response(query,history):
-
+def chatbot_response(query, history):
     """Gestisce la risposta del chatbot. Ignora input vuoti."""
     if not query.strip():  # Evita invii di stringhe vuote
         return [{"role": "assistant", "content": "⚠️ Empty user message. Please write a question for me!"}]
-       
     
     docs = retrieve_documents(query)
-    sources_with_pages = {(doc.metadata["source"], doc.metadata["page"]) for doc in docs}
     retrieved_docs_text = [doc.page_content for doc in docs]
     context = "\nExtracted documents:\n" + "".join([f"Document {str(i)}\n" + doc for i, doc in enumerate(retrieved_docs_text)])
 
@@ -100,23 +101,27 @@ def chatbot_response(query,history):
         for msg in message_history.messages
     ]) or "No previous conversation."
 
-
     if retrieved_docs_text:
-
         answer = gpt_generate(chat_history, query, prompt_rag_context, context)
-        sources_text = "\n".join([f"🔹 {source}, Page {page}" for source, page in sources_with_pages])
+
+        # Genera il testo delle fonti con link cliccabili, ma senza mostrare l'URL completo
+        sources_text = "\n".join([
+            f"🔹 [{doc.metadata['source']}, Pagina {doc.metadata['page']}]"
+            f"(http://localhost:8080/viewer.html?file={doc.metadata['source']}&page={doc.metadata['page']}&highlight={quote(doc.page_content[:CHUNK_SIZE])})"
+            for doc in docs
+        ])
+        
         answer = answer + "\n\n" + sources_text
 
     else:
         answer = gpt_generate(chat_history, query, prompt_rag_no_context, context)
-        
 
     # Update message history
     message_history.add_user_message(query)
     message_history.add_ai_message(answer)
-    
+
     return [{"role": "assistant", "content": answer}]
-    
+
         
 
 # Gradio Interface
