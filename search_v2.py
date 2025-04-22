@@ -72,15 +72,17 @@ def hybrid_search(cursor, query,query_embedding_str):
     except LangDetectException:
         detected_language = "simple"  # Usa un fallback
 
-    query_terms = query.split() 
-    query = " & ".join(query_terms)  
+    #query_terms = query.split() 
+    #query = " & ".join(query_terms)  
+    query=query.strip()
+
     # Definizione della query combinata
     query_sql = """
     WITH bm25_results AS (
         SELECT source, content, page_number, 
-            ts_rank_cd(tsv_content, to_tsquery(%s, %s) , 0) AS rank_bm25
+           ts_rank_cd(tsv_content, plainto_tsquery(%s, %s), 0) AS rank_bm25
         FROM embeddings
-        WHERE tsv_content @@ to_tsquery(%s, %s)
+       WHERE tsv_content @@ plainto_tsquery(%s, %s)
         ORDER BY rank_bm25 DESC
         LIMIT 100
     ),
