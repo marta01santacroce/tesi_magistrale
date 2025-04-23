@@ -1,16 +1,15 @@
-
-import gradio as gr  #versione 5.20.1
 import DB
 import search_v2
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
-import torch
-from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain.schema import HumanMessage
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from urllib.parse import quote
+from load_dataset import load_dataset
+from evaluate import load
+import pandas as pd
+from tqdm import tqdm  
 
 
 # Load environment variables from .env file
@@ -18,31 +17,46 @@ load_dotenv(override=True)
 
 # Retrieve your API key from your .env file
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-print('Chiave usata: '+OPENAI_API_KEY)
+print("Chiave usata: " + OPENAI_API_KEY +"\n")
 client = OpenAI()
 
 MAX_NEW_TOKENS = 4096  # Limita la generazione del modello  
 MAX_LENGTH = 4096   #128000 maximum sequence length for the model
 CHUNK_SIZE=512
-# Inizializza la memoria della conversazione
-message_history = ChatMessageHistory()
+
 
 
 # RAG Prompt Template with context
 prompt_rag_context = [
     {"role": "developer", "content": "You are an AI assistant specialized in answering questions based on the provided context.\nFollow these guidelines:\n- Use only the given context to generate your answer.\n- Provide a clear and relevant response. Avoid unnecessary details.\n- Do NOT mention the context, sources, or any document references in your response."},
-    {"role": "user", "content": "Previous conversation:\n{chat_history}\n---\nHere is the relevant context:\n{context}\n---\nNow, answer the following question based strictly on the context and on previous conversation .\n\nQuestion: {question}"},
+    {"role": "user", "content": "Here is the relevant context:\n{context}\n---\nNow, answer the following question based strictly on the context.\n\nQuestion: {question}"},
 ]
 # RAG Prompt Template no context
 prompt_rag_no_context = [
     {"role": "developer", "content": "You are an AI assistant specialized in answering questions based on the past history.Provide a clear and relevant response. Avoid unnecessary details.\n"},
-    {"role": "user", "content": "Previous conversation:\n{chat_history}\n---\nNow, answer the following question based on previous conversation and your konwladge .\n\nQuestion: {question}"}
+    {"role": "user", "content": "Now, answer the following question based on your konwladge .\n\nQuestion: {question}"}
 ]
 
-def gpt_generate(chat_history, question, prompt, context=""):
+
+def salva_risultati_metriche(questions, answers_reference, answers_prediction, sources_prediction,nome_file="risultati_metriche_with_@.xlsx"):
+    df = pd.DataFrame({
+        "query": questions,
+        "answer_reference": answers_reference,
+        "answer_prediction": answers_prediction,
+        "sources_prediction": sources_prediction
+        
+    })
+
+    path_output = os.path.join(os.getcwd(), nome_file)
+    df.to_excel(path_output, index=False)
+    print(f"\nRisultati salvati in: {path_output}")
+
+
+
+def gpt_generate(question, prompt, context=""):
 
     formatted_prompt = [
-        {"role": msg["role"], "content": msg["content"].format(context=context, chat_history=chat_history, question=question)}
+        {"role": msg["role"], "content": msg["content"].format(context=context, question=question)}
         for msg in prompt
     ]
     completion = client.chat.completions.create(
@@ -86,62 +100,55 @@ def retrieve_documents(query):
 
 
 # Chatbot function
-def chatbot_response(query, history):
-    """Gestisce la risposta del chatbot. Ignora input vuoti."""
-    if not query.strip():  # Evita invii di stringhe vuote
-        return [{"role": "assistant", "content": "⚠️ Empty user message. Please write a question for me!"}]
-    
+def answer_prediction(query):
+
     docs = retrieve_documents(query)
     retrieved_docs_text = [doc.page_content for doc in docs]
     context = "\nExtracted documents:\n" + "".join([f"Document {str(i)}\n" + doc for i, doc in enumerate(retrieved_docs_text)])
 
-    # Get conversation history
-    chat_history = "\n".join([
-        f"user: {msg.content}" if isinstance(msg, HumanMessage) else f"assistant: {msg.content}"
-        for msg in message_history.messages
-    ]) or "No previous conversation."
-
     if retrieved_docs_text:
-        answer = gpt_generate(chat_history, query, prompt_rag_context, context)
-
+        answer = gpt_generate(query, prompt_rag_context, context)
         # Genera il testo delle fonti con link cliccabili, ma senza mostrare l'URL completo
         sources_text = "\n".join([
-            f"🔹 [{doc.metadata['source']}, Pagina {doc.metadata['page']}]"
-            f"(http://localhost:8080/viewer.html?file={doc.metadata['source']}&page={doc.metadata['page']}&highlight={quote(doc.page_content[:CHUNK_SIZE])})"
+            f"[{doc.metadata['source']}, Pagina {doc.metadata['page']}]"
             for doc in docs
         ])
         
-        answer = answer + "\n\n" + sources_text
-
     else:
-        answer = gpt_generate(chat_history, query, prompt_rag_no_context, context)
+        answer = gpt_generate(query, prompt_rag_no_context, context)
+        sources_text='null'
 
-    # Update message history
-    message_history.add_user_message(query)
-    message_history.add_ai_message(answer)
-
-    return [{"role": "assistant", "content": answer}]
+    return answer,sources_text
 
         
-
-# Gradio Interface
-chatbot_ui = gr.ChatInterface(
-
-    fn = chatbot_response,
-    type = 'messages',
-    title = "🕷️RAG Chatbot🕷️",
-    theme ='allenai/gradio-theme',
-    show_progress ='full',
-    fill_height = True,
-    save_history = True,
-    flagging_mode = "manual",
-
-)
 
 if __name__ == "__main__":
         
     # Load database connection
     cursor, conn = DB.connect_db()
+    print("DEBUG--DataBase connected\n")
+    # Load dataset
+    questions, answers_reference = load_dataset('.\documenti\dataset\domande_risposte.xlsx') # Sostituisci con il nome del tuo dataset file
+    print("DEBUG--Loaded dataset\n")
+    # Load embeddings model
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
-    
-    chatbot_ui.launch()
+
+    # List of answers generated
+    answers_prediction=[]
+    # List of sources
+    sources_prediction=[]
+
+    for i in tqdm(range(len(questions)), desc="Elaborazione delle domande", unit="domanda"):
+        answer,sources_text = answer_prediction(questions[i])
+        answers_prediction.append(answer)
+        sources_prediction.append(sources_text)
+
+
+    salva_risultati_metriche(
+        questions=questions,
+        answers_reference=answers_reference,
+        answers_prediction=answers_prediction,
+        sources_prediction=sources_prediction
+        
+    )
+

@@ -16,7 +16,7 @@ bleu = load("bleu")
 rouge = load("rouge")
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
 
 # Retrieve your API key from your .env file
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
