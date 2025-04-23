@@ -7,5 +7,6 @@ File:
 - DB.py -> code to handle all interactions with the DB
 - search_v2.py -> code to retrieve relevant documents with hybrid search + reranking
 - evaluation.py -> code for evaluate the rag sysem using some metrics (BERT, BLEU and ROUGE)
+- evaluation_with_ @.py -> code for evaluate the rag sysem using some metrics (RECALL@K and MRR@K)
 - load_dataset.py -> code for load dataset (questions/answers)
 - **the other .py files are not rilevant (They are only used for personal debugging)**
