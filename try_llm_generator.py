@@ -5,8 +5,12 @@ from langchain.schema import Document
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import pipeline
 
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain.schema import AIMessage, HumanMessage
 
 READER_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+MAX_NEW_TOKENS = 1000  # Limita la generazione del modello
+MAX_LENGTH = 2048 # maximum sequence length for the model
 
 tokenizer = AutoTokenizer.from_pretrained(READER_MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(READER_MODEL_NAME)
@@ -20,9 +24,12 @@ READER_LLM = pipeline(
     temperature = 0.2,
     repetition_penalty = 1.1,
     return_full_text = False,
-    max_new_tokens = 1000,
+    max_new_tokens = MAX_NEW_TOKENS,
 )
 
+
+# Inizializza la memoria della conversazione
+message_history = ChatMessageHistory()
 
 # Prompt con memoria
 prompt_in_chat_format  = [
@@ -37,7 +44,10 @@ prompt_in_chat_format  = [
     },
     {
         "role": "user",
-        "content": """Here is the relevant context:  
+        "content": """Previous conversation:  
+        {chat_history}  
+        ---  
+        Here is the relevant context:  
         {context}  
         ---  
         Now, answer the following question based strictly on the context.  
@@ -80,8 +90,13 @@ def retrieve_documents(query):
 
 if __name__ == "__main__":
 
-    cursor, conn = DB.connect_db()
-    # Modello per embeddings
+    cursor, conn = DB.connect_db(
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432"
+    )
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
 
     print("\nHybrid Search (BM25 + Cosine Similarity)")
@@ -98,21 +113,16 @@ if __name__ == "__main__":
 
         # Recupera i documenti pertinenti
         docs = retrieve_documents(query)
-
-        # sorgenti + pagina
         sources_with_pages = {(doc.metadata["source"], doc.metadata["page"]) for doc in docs}
-
-
-
         retrieved_docs_text = [doc.page_content for doc in docs]  # We only need the text of the documents
+        context = "\nExtracted documents:\n" + "".join([f"Document {str(i)}\n" + doc for i, doc in enumerate(retrieved_docs_text)])
 
-        context = "\nExtracted documents:\n"
-
-        context += "".join([f"Document {str(i)}:::\n" + doc for i, doc in enumerate(retrieved_docs_text)])
-
+         # Get conversation history
+        chat_history = "\n".join([f"User: {msg.content}" if isinstance(msg, HumanMessage) else f"AI: {msg.content}" for msg in message_history.messages])
   
-        if context:
-            final_prompt = RAG_PROMPT_TEMPLATE.format(question=query, context=context)
+        if retrieved_docs_text:
+            
+            final_prompt = RAG_PROMPT_TEMPLATE.format(question=query, context=context[:MAX_LENGTH],chat_history=chat_history)
 
             # Genera la risposta
             answer = READER_LLM(final_prompt)[0]["generated_text"]
@@ -124,6 +134,9 @@ if __name__ == "__main__":
             for source, page in sources_with_pages:
                 print(f"🔹 Fonte: {source}, Pagina: {page}")
 
+            # Update message history
+            message_history.add_user_message(query)
+            message_history.add_ai_message(answer)
 
         else:
             print("\nNo results found.")

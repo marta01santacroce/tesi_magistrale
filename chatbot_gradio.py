@@ -141,7 +141,12 @@ chatbot_ui = gr.ChatInterface(
 if __name__ == "__main__":
         
     # Load database connection
-    cursor, conn = DB.connect_db()
+    cursor, conn = DB.connect_db(
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432")
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
     
     chatbot_ui.launch()

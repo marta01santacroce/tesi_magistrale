@@ -77,11 +77,12 @@ def hybrid_search(cursor, query,query_embedding_str):
     query=query.strip()
 
     # Definizione della query combinata
+    # CAMBIARE IL NOME DELLA TABELLA DI INTERESSE!!!!! -> FROM embeddings or FROM embeddings_character_splitter
     query_sql = """
     WITH bm25_results AS (
         SELECT source, content, page_number, 
            ts_rank_cd(tsv_content, plainto_tsquery(%s, %s), 0) AS rank_bm25
-        FROM embeddings
+        FROM embeddings                                                                                 
        WHERE tsv_content @@ plainto_tsquery(%s, %s)
         ORDER BY rank_bm25 DESC
         LIMIT 100

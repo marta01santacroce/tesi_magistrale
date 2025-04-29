@@ -41,11 +41,12 @@ prompt_rag_no_context = [
 ]
 
 
-def salva_risultati_metriche(questions, answers_reference, answers_prediction, bert_results, bleu_results, rouge_results, nome_file="risultati_metriche.xlsx"):
+def salva_risultati_metriche(questions, answers_reference, answers_prediction,sources_prediction,bert_results, bleu_results, rouge_results, nome_file="risultati_metriche_character_splitter.xlsx"): #cambia il nome del file a tuo piacimento
     df = pd.DataFrame({
         "query": questions,
         "answer_reference": answers_reference,
         "answer_prediction": answers_prediction,
+        "sources_prediction":sources_prediction,
         "bert_precision": bert_results["precision"],
         "bert_recall": bert_results["recall"],
         "bert_f1": bert_results["f1"],
@@ -117,18 +118,31 @@ def answer_prediction(query):
 
     if retrieved_docs_text:
         answer = gpt_generate(query, prompt_rag_context, context)
+        # Genera il testo delle fonti con link cliccabili, ma senza mostrare l'URL completo
+        sources_text = "\n".join([
+            f"[{doc.metadata['source']}, Pagina {doc.metadata['page']}]"
+            for doc in docs
+        ])
         
     else:
         answer = gpt_generate(query, prompt_rag_no_context, context)
+        sources_text='null'
 
-    return answer
+    return answer,sources_text
+
 
         
 
 if __name__ == "__main__":
         
     # Load database connection
-    cursor, conn = DB.connect_db()
+    cursor, conn = DB.connect_db(
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432"
+    )
     print("DEBUG--DataBase connected\n")
     # Load dataset
     questions, answers_reference = load_dataset('.\documenti\dataset\domande_risposte.xlsx') # Sostituisci con il nome del tuo dataset file
@@ -138,10 +152,15 @@ if __name__ == "__main__":
 
     # List of answers generated
     answers_prediction=[]
+    # List of sources
+    sources_prediction=[]
+
 
     for i in tqdm(range(len(questions)), desc="Elaborazione delle domande", unit="domanda"):
-        answer = answer_prediction(questions[i])
+        answer,sources_text = answer_prediction(questions[i])
         answers_prediction.append(answer)
+        sources_prediction.append(sources_text)
+
 
     # BERTScore
     results_bert = bertscore.compute(
@@ -172,6 +191,7 @@ if __name__ == "__main__":
         questions=questions,
         answers_reference=answers_reference,
         answers_prediction=answers_prediction,
+        sources_prediction=sources_prediction,
         bert_results=results_bert,
         bleu_results=results_bleu,
         rouge_results=results_rouge

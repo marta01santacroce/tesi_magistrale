@@ -113,9 +113,9 @@ def hybrid_search(cursor, query,query_embedding_str):
     FROM bm25_results b
     FULL OUTER JOIN semantic_results s 
     ON b.source = s.source AND b.content = s.content AND b.page_number = s.page_number
-    WHERE (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) > 0.9
+    WHERE (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) > 0.92
     ORDER BY final_rank DESC
-    LIMIT 10;
+    LIMIT 20;
     """
     # Esecuzione della query
     cursor.execute(query_sql, (detected_language,query,detected_language, query, query_embedding_str))
@@ -127,7 +127,12 @@ def hybrid_search(cursor, query,query_embedding_str):
 
 if __name__ == "__main__":
 
-    cursor, conn = DB.connect_db()
+    cursor, conn = DB.connect_db( 
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432")
     # Modello per embeddings
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
 
