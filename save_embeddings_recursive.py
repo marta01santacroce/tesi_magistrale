@@ -9,7 +9,8 @@ from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
 import DB
 
-CHUNK_SIZE=512
+CHUNK_SIZE = 512
+CHUNK_OVERLAP = 10
 
 # Dizionario con sigle delle lingue e i nomi delle lingue supportate
 language_dict = {
@@ -27,7 +28,6 @@ language_dict = {
     "id": "Indonesian",
     "it": "Italian",
     "lt": "Lithuanian",
-    "lv": "Latvian",
     "ne": "Nepali",
     "nl": "Dutch",
     "no": "Norwegian",
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
 
     if len(sys.argv) != 3:
-        ("[ERROR] Pass two parameters: \n- the path to the individual document file or to the folder containing all the files \n- Y if you want to clear all DB or N if you don't want to do that")
+        print("[ERROR] Pass two parameters: \n- the path to the individual document file or to the folder containing all the files \n- Y if you want to clear all DB or N if you don't want to do that")
         sys.exit()
 
     is_file = False
@@ -120,7 +120,7 @@ if __name__ == "__main__":
                     ))
 
     #Dividere in chunk
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=10)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size = CHUNK_SIZE, chunk_overlap = CHUNK_OVERLAP)
     chunks = text_splitter.split_documents(all_documents)
 
     #Salvare embeddings

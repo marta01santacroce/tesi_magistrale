@@ -9,7 +9,10 @@ from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
 import DB
 
-CHUNK_SIZE=512
+CHUNK_SIZE = 512
+CHUNK_OVERLAP = 10
+
+TABLE_NEME = "embeddings_character_splitter"
 
 # Dizionario con sigle delle lingue e i nomi delle lingue supportate
 language_dict = {
@@ -27,7 +30,6 @@ language_dict = {
     "id": "Indonesian",
     "it": "Italian",
     "lt": "Lithuanian",
-    "lv": "Latvian",
     "ne": "Nepali",
     "nl": "Dutch",
     "no": "Norwegian",
@@ -60,7 +62,7 @@ if __name__ == "__main__":
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
 
     if len(sys.argv) != 3:
-        ("[ERROR] Pass two parameters: \n- the path to the individual document file or to the folder containing all the files \n- Y if you want to clear all DB or N if you don't want to do that")
+        print("[ERROR] Pass two parameters: \n- the path to the individual document file or to the folder containing all the files \n- Y if you want to clear all DB or N if you don't want to do that")
         sys.exit()
 
     is_file = False
@@ -87,8 +89,8 @@ if __name__ == "__main__":
 
         if sys.argv[2] == 'Y':
 
-            DB.drop_table(cursor,table_name="embeddings_character_splitter")
-            DB.create_table(cursor,table_name="embeddings_character_splitter")
+            DB.drop_table(cursor,table_name = TABLE_NEME)
+            DB.create_table(cursor,table_name = TABLE_NEME)
              
 
     all_documents = []
@@ -122,10 +124,10 @@ if __name__ == "__main__":
     #Dividere in chunk
     text_splitter = CharacterTextSplitter(
         separator="\n\n",
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=20,
-        length_function=len,
-        is_separator_regex=False,
+        chunk_size = CHUNK_SIZE,
+        chunk_overlap = CHUNK_OVERLAP,
+        length_function = len,
+        is_separator_regex = False,
     )  
     chunks = text_splitter.split_documents(all_documents)
 
@@ -167,13 +169,13 @@ if __name__ == "__main__":
         
         # Converti in formato PostgreSQL
         embedding_str = "[" + ",".join(map(str, embedding_vector)) + "]"
-        DB.insert_embedding(text,source, embedding_vector, page_number, detected_language,cursor,table_name="embeddings_character_splitter")
+        DB.insert_embedding(text,source, embedding_vector, page_number, detected_language,cursor,table_name = TABLE_NEME)
         
         # Ottieni l'id del record appena inserito
         record_id = cursor.fetchone()[0]
         
         # Aggiorna il campo tsv_content solo per il record appena inserito
-        DB.set_tsv(cursor,detected_language,record_id,table_name="embeddings_character_splitter")
+        DB.set_tsv(cursor,detected_language,record_id,table_name = TABLE_NEME)
    
 
     #Salva le modifiche
@@ -182,7 +184,7 @@ if __name__ == "__main__":
     # Chiude la connessione al database
     DB.close_db(cursor, conn)
 
-    print(f"{len(chunks)} chunk salvati nel database con embeddings.")
+    print(f"{len(chunks)} chunk salvati nel database come embeddings.")
 
 
 

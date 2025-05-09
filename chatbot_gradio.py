@@ -21,9 +21,19 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 print('Chiave usata: '+OPENAI_API_KEY)
 client = OpenAI()
 
-MAX_NEW_TOKENS = 4096  # Limita la generazione del modello  
-MAX_LENGTH = 4096   #128000 maximum sequence length for the model
 CHUNK_SIZE=512
+
+TABLE_NAME = 'embeddings' # nome della tabella da cui effettuare la ricerca ibrida -> 
+# CAMBIARE IL NOME DELLA TABELLA DI INTERESSE!!!!! -> 
+    # embeddings -> usa recursive character splitter
+    # embeddings_character_splitter -> usa character splitter
+    # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
+    # embeddings_semantic_splitter_standard_deviation -> usa semantic splitter con tandard_deviation come breakpoint_threshold_type
+    # embeddings_semantic_splitter_interquartile -> usa semantic splitter con interquartile come breakpoint_threshold_type
+    # embeddings_semantic_splitter_gradient -> usa semantic splitter con gradient  come breakpoint_threshold_type
+
+
+
 # Inizializza la memoria della conversazione
 message_history = ChatMessageHistory()
 
@@ -46,8 +56,8 @@ def gpt_generate(chat_history, question, prompt, context=""):
         for msg in prompt
     ]
     completion = client.chat.completions.create(
-        model="gpt-4o",
-        messages=formatted_prompt
+        model = "gpt-4o",
+        messages = formatted_prompt
     )
 
     generated_text = completion.choices[0].message.content
@@ -65,7 +75,7 @@ def retrieve_documents(query):
     query_embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
     # Esegue la ricerca nel database (BM25 + Similarità Coseno + reranking)
-    results = search_v2.hybrid_search(cursor, query, query_embedding_str)
+    results = search_v2.hybrid_search(cursor, query, query_embedding_str,able_name=TABLE_NAME)
 
     # Converte i risultati in oggetti Document di LangChain
     documents = [
@@ -86,7 +96,7 @@ def retrieve_documents(query):
 
 
 # Chatbot function
-def chatbot_response(query, history):
+def chatbot_response(query):
     """Gestisce la risposta del chatbot. Ignora input vuoti."""
     if not query.strip():  # Evita invii di stringhe vuote
         return [{"role": "assistant", "content": "⚠️ Empty user message. Please write a question for me!"}]

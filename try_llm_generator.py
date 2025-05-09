@@ -12,6 +12,17 @@ READER_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 MAX_NEW_TOKENS = 1000  # Limita la generazione del modello
 MAX_LENGTH = 2048 # maximum sequence length for the model
 
+TABLE_NAME = 'embeddings' # nome della tabella da cui effettuare la ricerca ibrida -> 
+# CAMBIARE IL NOME DELLA TABELLA DI INTERESSE!!!!! -> 
+    # embeddings -> usa recursive character splitter
+    # embeddings_character_splitter -> usa character splitter
+    # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
+    # embeddings_semantic_splitter_standard_deviation -> usa semantic splitter con tandard_deviation come breakpoint_threshold_type
+    # embeddings_semantic_splitter_interquartile -> usa semantic splitter con interquartile come breakpoint_threshold_type
+    # embeddings_semantic_splitter_gradient -> usa semantic splitter con gradient  come breakpoint_threshold_type
+
+
+
 tokenizer = AutoTokenizer.from_pretrained(READER_MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(READER_MODEL_NAME)
 
@@ -69,7 +80,7 @@ def retrieve_documents(query):
     query_embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
     # Esegue la ricerca nel database (BM25 + Similarità Coseno + reranking)
-    results = search_v2.hybrid_search(cursor, query, query_embedding_str)
+    results = search_v2.hybrid_search(cursor, query, query_embedding_str, table_name=TABLE_NAME)
 
     # Converte i risultati in oggetti Document di LangChain
     documents = [

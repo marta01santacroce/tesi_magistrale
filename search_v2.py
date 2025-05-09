@@ -21,7 +21,6 @@ language_dict = {
     "id": "Indonesian",
     "it": "Italian",
     "lt": "Lithuanian",
-    "lv": "Latvian",
     "ne": "Nepali",
     "nl": "Dutch",
     "no": "Norwegian",
@@ -56,7 +55,7 @@ def rerank_results(query, results):
     return [res for res, _ in reranked_results]
 
 
-def hybrid_search(cursor, query,query_embedding_str):
+def hybrid_search(cursor, query,query_embedding_str,table_name):
 
     """
     Trova i chunks con uno score hybrido
@@ -77,20 +76,20 @@ def hybrid_search(cursor, query,query_embedding_str):
     query=query.strip()
 
     # Definizione della query combinata
-    # CAMBIARE IL NOME DELLA TABELLA DI INTERESSE!!!!! -> FROM embeddings or FROM embeddings_character_splitter
-    query_sql = """
+
+    query_sql = f"""
     WITH bm25_results AS (
         SELECT source, content, page_number, 
-           ts_rank_cd(tsv_content, plainto_tsquery(%s, %s), 0) AS rank_bm25
-        FROM embeddings                                                                                 
-       WHERE tsv_content @@ plainto_tsquery(%s, %s)
+            ts_rank_cd(tsv_content, plainto_tsquery(%s, %s), 0) AS rank_bm25
+        FROM {table_name}
+        WHERE tsv_content @@ plainto_tsquery(%s, %s)
         ORDER BY rank_bm25 DESC
         LIMIT 100
     ),
     semantic_results AS (
         SELECT source, content, page_number, 
-            1 - (embedding <=> %s) / 2  AS rank_semantic
-        FROM embeddings
+            1 - (embedding <=> %s) / 2 AS rank_semantic
+        FROM {table_name}
         ORDER BY rank_semantic DESC
         LIMIT 100
     )
@@ -108,8 +107,8 @@ def hybrid_search(cursor, query,query_embedding_str):
     ORDER BY final_rank DESC
     LIMIT 20;
     """
-    # Esecuzione della query
-    cursor.execute(query_sql, (detected_language,query,detected_language, query, query_embedding_str))
+    cursor.execute(query_sql, (detected_language, query, detected_language, query, query_embedding_str))
+
 
     # Recupero dei risultati
     results = cursor.fetchall()

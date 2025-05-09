@@ -5,7 +5,6 @@ from langchain.schema import Document
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
-from urllib.parse import quote
 from load_dataset import load_dataset
 from evaluate import load
 import pandas as pd
@@ -23,9 +22,15 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI()
 
-MAX_NEW_TOKENS = 4096  # Limita la generazione del modello  
-MAX_LENGTH = 4096   #128000 maximum sequence length for the model
-CHUNK_SIZE=512
+TABLE_NAME = 'embeddings_semantic_splitter_percentile' # nome della tabella da cui effettuare la ricerca ibrida -> 
+# CAMBIARE IL NOME DELLA TABELLA DI INTERESSE!!!!! -> 
+    # embeddings -> usa recursive character splitter
+    # embeddings_character_splitter -> usa character splitter
+    # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
+    # embeddings_semantic_splitter_standard_deviation -> usa semantic splitter con tandard_deviation come breakpoint_threshold_type
+    # embeddings_semantic_splitter_interquartile -> usa semantic splitter con interquartile come breakpoint_threshold_type
+    # embeddings_semantic_splitter_gradient -> usa semantic splitter con gradient  come breakpoint_threshold_type
+
 
 
 
@@ -41,7 +46,7 @@ prompt_rag_no_context = [
 ]
 
 
-def salva_risultati_metriche(questions, answers_reference, answers_prediction,sources_prediction,bert_results, bleu_results, rouge_results, nome_file="risultati_metriche_character_splitter.xlsx"): #cambia il nome del file a tuo piacimento
+def salva_risultati_metriche(questions, answers_reference, answers_prediction,sources_prediction,bert_results, bleu_results, rouge_results, nome_file="risultati_metriche_semantic_splitter_percentil.xlsx"): #cambia il nome del file in base alle esigenze!!!!!!!
     df = pd.DataFrame({
         "query": questions,
         "answer_reference": answers_reference,
@@ -50,7 +55,7 @@ def salva_risultati_metriche(questions, answers_reference, answers_prediction,so
         "bert_precision": bert_results["precision"],
         "bert_recall": bert_results["recall"],
         "bert_f1": bert_results["f1"],
-        "bleu": [results_bleu["bleu"]] * len(questions),  # stesso punteggio per tutte le righe
+        "bleu": [bleu_results["bleu"]] * len(questions),  # stesso punteggio per tutte le righe
         "rouge1_f1": rouge_results["rouge1"],
         "rouge2_f1": rouge_results["rouge2"],
         "rougeL_f1": rouge_results["rougeL"]
@@ -70,8 +75,8 @@ def gpt_generate(question, prompt, context=""):
         for msg in prompt
     ]
     completion = client.chat.completions.create(
-        model="gpt-4o",
-        messages=formatted_prompt
+        model = "gpt-4o",
+        messages = formatted_prompt
     )
 
     generated_text = completion.choices[0].message.content
@@ -89,7 +94,7 @@ def retrieve_documents(query):
     query_embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
     # Esegue la ricerca nel database (BM25 + Similarità Coseno + reranking)
-    results = search_v2.hybrid_search(cursor, query, query_embedding_str)
+    results = search_v2.hybrid_search(cursor, query, query_embedding_str,table_name = TABLE_NAME)
 
     # Converte i risultati in oggetti Document di LangChain
     documents = [
