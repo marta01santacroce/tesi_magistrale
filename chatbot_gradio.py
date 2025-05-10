@@ -75,7 +75,7 @@ def retrieve_documents(query):
     query_embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
     # Esegue la ricerca nel database (BM25 + Similarità Coseno + reranking)
-    results = search_v2.hybrid_search(cursor, query, query_embedding_str,able_name=TABLE_NAME)
+    results = search_v2.hybrid_search(cursor, query, query_embedding_str,table_name=TABLE_NAME)
 
     # Converte i risultati in oggetti Document di LangChain
     documents = [
@@ -96,7 +96,7 @@ def retrieve_documents(query):
 
 
 # Chatbot function
-def chatbot_response(query):
+def chatbot_response(query,history):
     """Gestisce la risposta del chatbot. Ignora input vuoti."""
     if not query.strip():  # Evita invii di stringhe vuote
         return [{"role": "assistant", "content": "⚠️ Empty user message. Please write a question for me!"}]
