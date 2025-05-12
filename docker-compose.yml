@@ -6,8 +6,8 @@ services:
     container_name: postgres_pgvector
     restart: always
     environment:
-      POSTGRES_DB: rag_db
-      POSTGRES_USER: rag_user
+      POSTGRES_DB: db_name
+      POSTGRES_USER: user_name
       POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
