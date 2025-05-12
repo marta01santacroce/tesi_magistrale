@@ -49,12 +49,12 @@ Parametri da passare in fase di esecuzione:
 '''
 if __name__ == "__main__":
 
-    cursor, conn = DB.connect_db( 
-        host = "localhost",
-        database = "rag_db",
-        user = "rag_user",
+     cursor, conn = DB.connect_db(
+        host = "host_name",
+        database = "db_name",
+        user = "user_name",
         password = "password",
-        port = "5432")
+        port = "port_number")
     
     # Modello per embeddings
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
