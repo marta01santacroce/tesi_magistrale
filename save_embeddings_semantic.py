@@ -59,13 +59,12 @@ if __name__ == "__main__":
     start_time = time.time()
 
     cursor, conn = DB.connect_db(
-        host="localhost",
-        database="rag_db",
-        user="rag_user",
-        password="password",
-        port="5432"
-    )
-
+        host = "host_name",
+        database = "db_name",
+        user = "user_name",
+        password = "password",
+        port = "port_number")
+    
     if sys.argv[2] == 'Y':
         DB.drop_table(cursor, table_name=TABLE_NAME)
         DB.create_table(cursor, table_name=TABLE_NAME)
