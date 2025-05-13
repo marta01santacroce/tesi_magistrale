@@ -27,10 +27,6 @@ TABLE_NAME = 'embeddings_semantic_splitter_percentile' # nome della tabella da c
     # embeddings -> usa recursive character splitter
     # embeddings_character_splitter -> usa character splitter
     # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
-    # embeddings_semantic_splitter_standard_deviation -> usa semantic splitter con tandard_deviation come breakpoint_threshold_type
-    # embeddings_semantic_splitter_interquartile -> usa semantic splitter con interquartile come breakpoint_threshold_type
-    # embeddings_semantic_splitter_gradient -> usa semantic splitter con gradient  come breakpoint_threshold_type
-
 
 
 
@@ -75,7 +71,8 @@ def gpt_generate(question, prompt, context=""):
         for msg in prompt
     ]
     completion = client.chat.completions.create(
-        model = "gpt-4o",
+        model = "gpt-4o-mini",
+        temperature = 0.2,
         messages = formatted_prompt
     )
 

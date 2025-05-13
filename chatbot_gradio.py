@@ -12,13 +12,24 @@ import os
 from dotenv import load_dotenv
 from urllib.parse import quote
 
+from openinference.instrumentation.openai import OpenAIInstrumentor
+from phoenix.otel import register
+import warnings
+warnings.filterwarnings("ignore")
+ 
+tracer_provider = register(
+    project_name="prova_marta",
+    endpoint="http://localhost:6006/v1/traces",
+)
+ 
+OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
 
 # Load environment variables from .env file
 load_dotenv(override=True)
 
 # Retrieve your API key from your .env file
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-print('Chiave usata: '+OPENAI_API_KEY)
+print('Chiave usata: '+ OPENAI_API_KEY)
 client = OpenAI()
 
 CHUNK_SIZE=512
@@ -28,15 +39,11 @@ TABLE_NAME = 'embeddings' # nome della tabella da cui effettuare la ricerca ibri
     # embeddings -> usa recursive character splitter
     # embeddings_character_splitter -> usa character splitter
     # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
-    # embeddings_semantic_splitter_standard_deviation -> usa semantic splitter con tandard_deviation come breakpoint_threshold_type
-    # embeddings_semantic_splitter_interquartile -> usa semantic splitter con interquartile come breakpoint_threshold_type
-    # embeddings_semantic_splitter_gradient -> usa semantic splitter con gradient  come breakpoint_threshold_type
 
 
 
 # Inizializza la memoria della conversazione
 message_history = ChatMessageHistory()
-
 
 # RAG Prompt Template with context
 prompt_rag_context = [
@@ -56,7 +63,8 @@ def gpt_generate(chat_history, question, prompt, context=""):
         for msg in prompt
     ]
     completion = client.chat.completions.create(
-        model = "gpt-4o",
+        model = "gpt-4o-mini",
+        temperature = 0.2,
         messages = formatted_prompt
     )
 
@@ -112,8 +120,8 @@ def chatbot_response(query,history):
     ]) or "No previous conversation."
 
     if retrieved_docs_text:
-        answer = gpt_generate(chat_history, query, prompt_rag_context, context)
-
+        answer = gpt_generate(chat_history, query, prompt_rag_context, context) # context[:CHUNK_SIZE] provare
+        # answer = gpt_generate( query, prompt_rag_context, context) 
         # Genera il testo delle fonti con link cliccabili, ma senza mostrare l'URL completo
         sources_text = "\n".join([
             f"🔹 [{doc.metadata['source']}, Pagina {doc.metadata['page']}]"
@@ -124,7 +132,8 @@ def chatbot_response(query,history):
         answer = answer + "\n\n" + sources_text
 
     else:
-        answer = gpt_generate(chat_history, query, prompt_rag_no_context, context)
+        answer = gpt_generate(chat_history, query, prompt_rag_no_context, context) 
+        #answer = gpt_generate( query, prompt_rag_no_context, context) 
 
     # Update message history
     message_history.add_user_message(query)
@@ -145,6 +154,14 @@ chatbot_ui = gr.ChatInterface(
     fill_height = True,
     save_history = True,
     flagging_mode = "manual",
+    css="""
+        * {
+            font-family: 'Roboto', monospace;
+        }
+        .prose {
+            font-family: 'Roboto', monospace;
+        }
+    """
 
 )
 
@@ -152,11 +169,11 @@ if __name__ == "__main__":
         
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "host_name",
-        database = "db_name",
-        user = "user_name",
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
         password = "password",
-        port = "port_number")
+        port = "5432")
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
     
     chatbot_ui.launch()

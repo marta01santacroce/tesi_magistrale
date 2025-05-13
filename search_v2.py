@@ -70,9 +70,7 @@ def hybrid_search(cursor, query,query_embedding_str,table_name):
 
     except LangDetectException:
         detected_language = "simple"  # Usa un fallback
-
-    #query_terms = query.split() 
-    #query = " & ".join(query_terms)  
+ 
     query=query.strip()
 
     # Definizione della query combinata
@@ -105,7 +103,7 @@ def hybrid_search(cursor, query,query_embedding_str,table_name):
     ON b.source = s.source AND b.content = s.content AND b.page_number = s.page_number
     WHERE (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) > 0.92
     ORDER BY final_rank DESC
-    LIMIT 20;
+    LIMIT 10;
     """
     cursor.execute(query_sql, (detected_language, query, detected_language, query, query_embedding_str))
 

@@ -17,6 +17,9 @@ TABLE_NAME = 'embeddings' # nome della tabella da cui effettuare la ricerca ibri
     # embeddings -> usa recursive character splitter
     # embeddings_character_splitter -> usa character splitter
     # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
+
+
+    #NON ANCORA IMPLEMENTATE
     # embeddings_semantic_splitter_standard_deviation -> usa semantic splitter con tandard_deviation come breakpoint_threshold_type
     # embeddings_semantic_splitter_interquartile -> usa semantic splitter con interquartile come breakpoint_threshold_type
     # embeddings_semantic_splitter_gradient -> usa semantic splitter con gradient  come breakpoint_threshold_type
@@ -102,11 +105,12 @@ def retrieve_documents(query):
 if __name__ == "__main__":
 
     cursor, conn = DB.connect_db(
-        host = "host_name",
-        database = "db_name",
-        user = "user_name",
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
         password = "password",
-        port = "port_number")
+        port = "5432"
+    )
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
 
     print("\nHybrid Search (BM25 + Cosine Similarity)")
