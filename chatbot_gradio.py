@@ -4,14 +4,15 @@ import DB
 import search_v2
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
-import torch
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain.schema import HumanMessage
 from openai import OpenAI
 import os
+
+import re
 from dotenv import load_dotenv
 from urllib.parse import quote
-
+from collections import defaultdict
 from openinference.instrumentation.openai import OpenAIInstrumentor
 from phoenix.otel import register
 import warnings
@@ -40,6 +41,10 @@ TABLE_NAME = 'embeddings' # nome della tabella da cui effettuare la ricerca ibri
     # embeddings_character_splitter -> usa character splitter
     # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
 
+no_docs_template = (
+    "I'm sorry but I could not find any relevant documents to answer your query.\n"
+    "Try rephrasing the query or ask me something more specific."
+)
 
 
 # Inizializza la memoria della conversazione
@@ -47,14 +52,40 @@ message_history = ChatMessageHistory()
 
 # RAG Prompt Template with context
 prompt_rag_context = [
-    {"role": "developer", "content": "You are an AI assistant specialized in answering questions based on the provided context.\nFollow these guidelines:\n- Use only the given context to generate your answer.\n- Provide a clear and relevant response. Avoid unnecessary details.\n- Do NOT mention the context, sources, or any document references in your response."},
-    {"role": "user", "content": "Previous conversation:\n{chat_history}\n---\nHere is the relevant context:\n{context}\n---\nNow, answer the following question based strictly on the context and on previous conversation .\n\nQuestion: {question}"},
+    {"role": "developer", 
+     "content": "You are an AI assistant specialized in answering questions based on the provided context.\n"
+    "Follow these guidelines:\n"
+    "- Use only the given context to generate your answer.\n"
+    "- Provide a clear and relevant response. Avoid unnecessary details.\n"
+    "- Do NOT mention the context, sources, or any document references in your response.\n"
+    "- If you cannot answer based on the context, reply with exactly the following message:\n"
+            "\"I'm sorry but I could not find any relevant documents to answer your query.\n"
+            "Try rephrasing the query or ask me something more specific.\"\n"
+    },
+    {"role": "user", 
+     "content": "Previous conversation:\n{chat_history}\n---\nHere is the relevant context:\n{context}\n---\nNow, answer the following question based strictly on the context and on previous conversation .\n\nQuestion: {question}"},
 ]
+
+'''
 # RAG Prompt Template no context
 prompt_rag_no_context = [
     {"role": "developer", "content": "You are an AI assistant specialized in answering questions based on the past history.Provide a clear and relevant response. Avoid unnecessary details.\n"},
     {"role": "user", "content": "Previous conversation:\n{chat_history}\n---\nNow, answer the following question based on previous conversation and your konwladge .\n\nQuestion: {question}"}
 ]
+'''
+def normalize(text):
+    return " ".join(text.strip().lower().split())
+
+def clean_snippet(text):
+    text = text.replace("\n", " ")
+    text = re.sub(r'([a-zA-Z]+)(\d+)', r'\1 \2', text)
+    text = text.lower()
+    text = text.replace('- ','')
+    text = text[3:-3]
+    return text.strip()
+
+def double_url_encode(s):
+    return quote(quote(s, safe=''), safe='')
 
 def gpt_generate(chat_history, question, prompt, context=""):
 
@@ -104,9 +135,9 @@ def retrieve_documents(query):
 
 
 # Chatbot function
-def chatbot_response(query,history):
+def chatbot_response(query, history):
     """Gestisce la risposta del chatbot. Ignora input vuoti."""
-    if not query.strip():  # Evita invii di stringhe vuote
+    if not query.strip():
         return [{"role": "assistant", "content": "⚠️ Empty user message. Please write a question for me!"}]
     
     docs = retrieve_documents(query)
@@ -119,27 +150,48 @@ def chatbot_response(query,history):
         for msg in message_history.messages
     ]) or "No previous conversation."
 
+    total_answer = ""
+    
     if retrieved_docs_text:
-        answer = gpt_generate(chat_history, query, prompt_rag_context, context) # context[:CHUNK_SIZE] provare
-        # answer = gpt_generate( query, prompt_rag_context, context) 
-        # Genera il testo delle fonti con link cliccabili, ma senza mostrare l'URL completo
-        sources_text = "\n".join([
-            f"🔹 [{doc.metadata['source']}, Pagina {doc.metadata['page']}]"
-            f"(http://localhost:8080/viewer.html?file={doc.metadata['source']}&page={doc.metadata['page']}&highlight={quote(doc.page_content[:CHUNK_SIZE])})"
-            for doc in docs
-        ])
-        
-        answer = answer + "\n\n" + sources_text
+        answer = gpt_generate(chat_history, query, prompt_rag_context, context)
 
+        if normalize(answer) != normalize(no_docs_template):
+
+            # Riorganizza le fonti per documento con link per ogni pagina
+            doc_pages = defaultdict(list)
+            for doc in docs:
+                doc_name = doc.metadata["source"]
+                page = doc.metadata["page"]
+                snippet = clean_snippet(doc.page_content[:CHUNK_SIZE])
+                doc_pages[doc_name].append((page, snippet))
+
+                print("DEBUG--\n" + str(snippet))
+
+            sources_text = ""
+            for doc_name, pages in doc_pages.items():
+                sorted_pages = sorted(set(pages), key=lambda x: x[0])
+                page_links = ", ".join([
+                    f"[pag.{page}](http://localhost:8080/viewer.html?file={quote(doc_name)}&page={page}&highlight={double_url_encode(snippet)})"
+                    for page, snippet in sorted_pages
+                ])
+                sources_text += f"🔹 {doc_name}: {page_links}\n"
+
+            total_answer = answer + "\n\n" + sources_text
+        else:
+          total_answer = answer  
     else:
-        answer = gpt_generate(chat_history, query, prompt_rag_no_context, context) 
-        #answer = gpt_generate( query, prompt_rag_no_context, context) 
+        #answer = gpt_generate(chat_history, query, prompt_rag_no_context, context)
+        # Template di risposta nel caso non venga trovato alcun documento
+        #total_answer = answer
+
+        total_answer = no_docs_template
+        answer = total_answer
 
     # Update message history
     message_history.add_user_message(query)
     message_history.add_ai_message(answer)
 
-    return [{"role": "assistant", "content": answer}]
+    return [{"role": "assistant", "content": total_answer}]
 
         
 
@@ -169,11 +221,11 @@ if __name__ == "__main__":
         
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "localhost",
-        database = "rag_db",
-        user = "rag_user",
+        host = "host_name",
+        database = "db_name",
+        user = "user_name",
         password = "password",
-        port = "5432")
+        port = "port_number")
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
     
     chatbot_ui.launch()
