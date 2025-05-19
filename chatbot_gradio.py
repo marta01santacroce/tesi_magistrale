@@ -35,9 +35,10 @@ client = OpenAI()
 
 CHUNK_SIZE=512
 
-TABLE_NAME = 'embeddings' # nome della tabella da cui effettuare la ricerca ibrida -> 
+TABLE_NAME = 'embeddings_recursive' # nome della tabella da cui effettuare la ricerca ibrida -> 
 # CAMBIARE IL NOME DELLA TABELLA DI INTERESSE!!!!! -> 
     # embeddings -> usa recursive character splitter
+    # embeddings_recursive -> usa recursive character splitter v2
     # embeddings_character_splitter -> usa character splitter
     # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
 
@@ -125,7 +126,8 @@ def retrieve_documents(query):
                 "page": res[2],
                 "bm25_score": res[3],
                 "semantic_score": res[4],
-                "hybrid_score": res[5]  # 0.3 * BM25 + 1 * Semantico
+                "hybrid_score": res[5],  # 0.3 * BM25 + 1 * Semantico
+                #"title": res[6]
             }
         )
         for res in results
@@ -165,7 +167,6 @@ def chatbot_response(query, history):
                 snippet = clean_snippet(doc.page_content[:CHUNK_SIZE])
                 doc_pages[doc_name].append((page, snippet))
 
-                print("DEBUG--\n" + str(snippet))
 
             sources_text = ""
             for doc_name, pages in doc_pages.items():
@@ -174,7 +175,8 @@ def chatbot_response(query, history):
                     f"[pag.{page}](http://localhost:8080/viewer.html?file={quote(doc_name)}&page={page}&highlight={double_url_encode(snippet)})"
                     for page, snippet in sorted_pages
                 ])
-                sources_text += f"🔹 {doc_name}: {page_links}\n"
+                title_document=doc_name[:70]+"..."
+                sources_text += f"🔹 {title_document}: {page_links}\n"
 
             total_answer = answer + "\n\n" + sources_text
         else:
@@ -221,11 +223,11 @@ if __name__ == "__main__":
         
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "host_name",
-        database = "db_name",
-        user = "user_name",
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
         password = "password",
-        port = "port_number")
+        port = "5432")
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
     
     chatbot_ui.launch()
