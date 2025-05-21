@@ -109,12 +109,12 @@ def retrieve_documents(query):
 
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "localhost",
-        database = "rag_db",
-        user = "rag_user",
-        password = "password",
-        port = "5432")
-    
+        host = "HOST_NAME",
+        database = "DB_NAME",
+        user = "USER_NAME",
+        password = "PASSWORD",
+        port = "PORT_NUMBER"
+    )
     """Recupera i documenti più rilevanti dal database basandosi sulla query dell'utente."""
 
     # Genera l'embedding della query
@@ -207,11 +207,12 @@ def chatbot_response(query, history):
 def upload_and_process_files(file_list):
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "localhost",
-        database = "rag_db",
-        user = "rag_user",
-        password = "password",
-        port = "5432")
+        host = "HOST_NAME",
+        database = "DB_NAME",
+        user = "USER_NAME",
+        password = "PASSWORD",
+        port = "PORT_NUMBER"
+    )
     
     if not file_list:
         return "⚠️ Nessun file selezionato."
