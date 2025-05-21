@@ -14,7 +14,7 @@ from urllib.parse import quote
 from collections import defaultdict
 from openinference.instrumentation.openai import OpenAIInstrumentor
 from phoenix.otel import register
-import save_embeddings_recursive_v2 as sv_rec
+import save_embeddings_recursive as sv_rec
 import update_name_pdf_and_move_folder as rename_move
 import subprocess
 import warnings
