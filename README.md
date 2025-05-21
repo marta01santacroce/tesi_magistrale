@@ -11,4 +11,3 @@ File:
 - evaluation.py -> code for evaluate the rag sysem using some metrics (BERT, BLEU, ROUGE, RECALL@K and MRR)
 - load_dataset.py -> code for load dataset (questions/answers)
 - update_name_pdf_and_move_folder.py -> code to handle the loading of new files, formatting the name as Gradio wishes, and copying the document into the *pdf_files* folder, which MUST be present in the project directory and thus contain all the pdfs
-- **the other .py files are not rilevant (They are only used for personal debugging)**
