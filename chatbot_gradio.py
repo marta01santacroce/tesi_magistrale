@@ -1,5 +1,4 @@
-
-import gradio as gr  #versione 5.20.1
+import gradio as gr  #versione 5.20.1 -- ho aggiornato a 5.30.0
 import DB
 import search_v2
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -8,13 +7,16 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain.schema import HumanMessage
 from openai import OpenAI
 import os
-
+from pathlib import Path
 import re
 from dotenv import load_dotenv
 from urllib.parse import quote
 from collections import defaultdict
 from openinference.instrumentation.openai import OpenAIInstrumentor
 from phoenix.otel import register
+import save_embeddings_recursive_v2 as sv_rec
+import update_name_pdf_and_move_folder as rename_move
+import subprocess
 import warnings
 warnings.filterwarnings("ignore")
  
@@ -24,13 +26,10 @@ tracer_provider = register(
 )
  
 OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
-
 # Load environment variables from .env file
 load_dotenv(override=True)
-
 # Retrieve your API key from your .env file
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-print('Chiave usata: '+ OPENAI_API_KEY)
 client = OpenAI()
 
 CHUNK_SIZE=512
@@ -107,6 +106,15 @@ def gpt_generate(chat_history, question, prompt, context=""):
 
 
 def retrieve_documents(query):
+
+    # Load database connection
+    cursor, conn = DB.connect_db(
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432")
+    
     """Recupera i documenti più rilevanti dal database basandosi sulla query dell'utente."""
 
     # Genera l'embedding della query
@@ -127,14 +135,14 @@ def retrieve_documents(query):
                 "bm25_score": res[3],
                 "semantic_score": res[4],
                 "hybrid_score": res[5],  # 0.3 * BM25 + 1 * Semantico
-                #"title": res[6]
             }
         )
         for res in results
     ]
 
-    return documents
+    DB.close_db(cursor, conn)
 
+    return documents
 
 # Chatbot function
 def chatbot_response(query, history):
@@ -195,32 +203,8 @@ def chatbot_response(query, history):
 
     return [{"role": "assistant", "content": total_answer}]
 
-        
 
-# Gradio Interface
-chatbot_ui = gr.ChatInterface(
-
-    fn = chatbot_response,
-    type = 'messages',
-    title = "🕷️RAG Chatbot🕷️",
-    theme ='allenai/gradio-theme',
-    show_progress ='full',
-    fill_height = True,
-    save_history = True,
-    flagging_mode = "manual",
-    css="""
-        * {
-            font-family: 'Roboto', monospace;
-        }
-        .prose {
-            font-family: 'Roboto', monospace;
-        }
-    """
-
-)
-
-if __name__ == "__main__":
-        
+def upload_and_process_files(file_list):
     # Load database connection
     cursor, conn = DB.connect_db(
         host = "localhost",
@@ -228,6 +212,124 @@ if __name__ == "__main__":
         user = "rag_user",
         password = "password",
         port = "5432")
+    
+    if not file_list:
+        return "⚠️ Nessun file selezionato."
+
+    
+    output_elaborati = []
+    output_non_elaborati = []
+
+    for file_obj in file_list:
+        
+        value = 0
+        
+        file_path = Path(file_obj.name)
+        file_name = os.path.basename(file_obj.name)
+             
+        try:
+                                
+            value = sv_rec.save_pdfs(file_path=file_path, option='N', cursor=cursor, table_name=TABLE_NAME,embedding_model=embedding_model, conn=conn)
+
+            if value == None:
+                if len(file_name) > 40: output_non_elaborati.append(str(file_name[:40]+"...")) #per evitare formattazioni in uscita non carine, se il filename è più lungo di 40 caratteri lo tronco
+                else: output_non_elaborati.append(str(file_name))
+                
+            else:
+                if len(file_name) > 40: output_elaborati.append(str(file_name[:40]+"...")) #per evitare formattazioni in uscita non carine, se il filename è più lungo di 40 caratteri lo tronco
+                else: output_elaborati.append(str(file_name))
+                base_path = os.getcwd()  # path corrente
+                subfolder = "pdf_files" # nome cartella dei pdfs
+                destination_folder = os.path.join(base_path, subfolder)
+                rename_move.rename_and_move_single_pdf(file_path = file_path, destination_folder = destination_folder)
+                    
+        except Exception as e:
+            if len(file_name) > 40: output_non_elaborati.append(str(file_name[:40]+"...")) #per evitare formattazioni in uscita non carine, se il filename è più lungo di 40 caratteri lo tronco
+            else: output_non_elaborati.append(str(file_name))
+            
+
+    DB.save_changes(conn)
+    DB.close_db(cursor, conn)
+   
+    return  (
+            f"✅ {len(output_elaborati)} file PDF elaborati:\n"
+            + "\n".join(output_elaborati)
+            + f"\n\n⛔ {len(output_non_elaborati)} file PDF NON elaborati perché già presenti nel DB:\n"
+            + "\n".join(output_non_elaborati)
+            )
+
+        
+
+# Gradio Interface
+chatbot_ui = gr.ChatInterface(
+
+    fn = chatbot_response,
+    fill_height=True,fill_width=True,
+    type = 'messages',
+    title = "🕷️RAG Chatbot🕷️",
+    show_progress ='full',
+    save_history = True,
+    flagging_mode = "manual"
+
+)
+
+
+upload_ui = gr.Interface(
+    fn = upload_and_process_files,
+    fill_height=True,fill_width=True,
+    inputs=gr.File(
+        file_types=[".pdf"],
+        file_count="multiple",
+        label="Inserisci i PDF"
+    ),
+    outputs=gr.Textbox(label="🔔 Stato caricamento"),
+    title="Caricamento Documenti",
+    allow_flagging="never"
+)
+
+
+if __name__ == "__main__":
+
+    # Imposta la cartella da servire
+    pdf_dir = os.path.join(os.getcwd(), "pdf_files")
+
+    # Avvia un server HTTP in background sulla cartella pdf_files sulla porta 8080
+    subprocess.Popen(
+        ["python", "-m", "http.server", "8080"],
+        cwd=pdf_dir,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
     
-    chatbot_ui.launch()
+    #chatbot_ui.launch()
+    with gr.Blocks(
+        theme='allenai/gradio-theme', 
+        fill_height=True,
+        fill_width=True, 
+        css="""
+                    html, body, #root, .gradio-container {
+                        height: 100% !important;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .gradio-container {
+                        display: flex;
+                        flex-direction: column;
+                    }
+                    main {
+                        flex-grow: 1;
+                        overflow: auto;
+                    }
+                    """) as demo:
+        gr.TabbedInterface(
+            [chatbot_ui, upload_ui],
+            ["🤖 Chatbot", "📂 Carica Documenti"]
+        )
+        demo.load(concurrency_limit=None)
+
+    demo.launch()
+
+        
+

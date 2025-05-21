@@ -97,7 +97,7 @@ def hybrid_search(cursor, query,query_embedding_str,table_name):
         COALESCE(b.page_number, s.page_number) AS page_number,
         COALESCE(b.rank_bm25, 0) AS rank_bm25,
         COALESCE(s.rank_semantic, 0) AS rank_semantic,
-        (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) AS final_rank
+        (0.3 * COALESCE(b.rank_bm25, 0) + 1 * COALESCE(s.rank_semantic, 0)) AS final_rank        
     FROM bm25_results b
     FULL OUTER JOIN semantic_results s 
     ON b.source = s.source AND b.content = s.content AND b.page_number = s.page_number
@@ -107,10 +107,8 @@ def hybrid_search(cursor, query,query_embedding_str,table_name):
     """
     cursor.execute(query_sql, (detected_language, query, detected_language, query, query_embedding_str))
 
-
     # Recupero dei risultati
     results = cursor.fetchall()
-
     # Applica il reranking
     reranked_results = rerank_results(query, results)
 
