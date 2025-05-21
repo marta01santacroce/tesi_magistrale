@@ -139,11 +139,11 @@ if __name__ == "__main__":
         
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "localhost",
-        database = "rag_db",
-        user = "rag_user",
-        password = "password",
-        port = "5432"
+        host = "HOST_NAME",
+        database = "DB_NAME",
+        user = "USER_NAME",
+        password = "PASSWORD",
+        port = "PORT_NUMBER"
     )
     print("DEBUG--DataBase connected\n")
     # Load dataset
