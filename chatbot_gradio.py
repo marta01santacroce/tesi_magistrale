@@ -1,4 +1,4 @@
-import gradio as gr  #versione 5.20.1 -- ho aggiornato a 5.30.0
+import gradio as gr  #versione 5.30.0
 import DB
 import search_v2
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -18,12 +18,26 @@ import save_embeddings_recursive as sv_rec
 import update_name_pdf_and_move_folder as rename_move
 import subprocess
 import warnings
+import docker
+
 warnings.filterwarnings("ignore")
  
 tracer_provider = register(
     project_name="prova_marta",
     endpoint="http://localhost:6006/v1/traces",
 )
+
+# docker connessione
+client_docker = docker.from_env()
+
+container = client_docker.containers.get("postgres_pgvector")
+
+if container.status != "running":
+    print(f"Avvio del container {container.name}...")
+    container.start()
+else:
+    print(f"Il container {container.name} è già in esecuzione.")
+
  
 OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
 # Load environment variables from .env file
@@ -43,7 +57,8 @@ TABLE_NAME = 'embeddings_recursive' # nome della tabella da cui effettuare la ri
 
 no_docs_template = (
     "I'm sorry but I could not find any relevant documents to answer your query.\n"
-    "Try rephrasing the query or ask me something more specific."
+    "Try rephrasing the query or ask me something more specific.\n" 
+    "If you want a more in-depth explanation of the previous answer, take up the question you asked and ask me explicitly."
 )
 
 
@@ -60,7 +75,9 @@ prompt_rag_context = [
     "- Do NOT mention the context, sources, or any document references in your response.\n"
     "- If you cannot answer based on the context, reply with exactly the following message:\n"
             "\"I'm sorry but I could not find any relevant documents to answer your query.\n"
-            "Try rephrasing the query or ask me something more specific.\"\n"
+            "Try rephrasing the query or ask me something more specific.\n"
+            "If you want a more in-depth explanation of the previous answer, take up the question you asked and ask me explicitly.\"\n"
+            
     },
     {"role": "user", 
      "content": "Previous conversation:\n{chat_history}\n---\nHere is the relevant context:\n{context}\n---\nNow, answer the following question based strictly on the context and on previous conversation .\n\nQuestion: {question}"},
@@ -109,11 +126,11 @@ def retrieve_documents(query):
 
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "HOST_NAME",
-        database = "DB_NAME",
-        user = "USER_NAME",
-        password = "PASSWORD",
-        port = "PORT_NUMBER"
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432"
     )
     """Recupera i documenti più rilevanti dal database basandosi sulla query dell'utente."""
 
@@ -144,6 +161,27 @@ def retrieve_documents(query):
 
     return documents
 
+
+def explain_relevance(source_to_contents, query):
+    explanation_prompt = [{"role": "system", "content": "You are a helpful assistant that explains why each document was considered relevant."}]
+    
+    user_content = "Given the user query:\n\n" + query + "\n\nExplain why each document is relevant:\n"
+
+    for source, contents in source_to_contents.items():
+        combined = "\n".join(contents[:3])  # Max 3 chunk per doc per brevità
+        user_content += f"\nDocument: {source}\nContents:\n{combined}\n---"
+    
+    explanation_prompt.append({"role": "user", "content": user_content})
+    
+    completion = client.chat.completions.create(
+        model = "gpt-4o-mini",
+        temperature = 0.2,
+        messages = explanation_prompt
+    )
+    
+    return completion.choices[0].message.content
+
+
 # Chatbot function
 def chatbot_response(query, history):
     """Gestisce la risposta del chatbot. Ignora input vuoti."""
@@ -161,11 +199,20 @@ def chatbot_response(query, history):
     ]) or "No previous conversation."
 
     total_answer = ""
+
+
+
+
     
     if retrieved_docs_text:
         answer = gpt_generate(chat_history, query, prompt_rag_context, context)
 
         if normalize(answer) != normalize(no_docs_template):
+
+            # Raggruppa i contenuti per source
+            source_to_contents = defaultdict(list)
+            for doc in docs:
+                source_to_contents[doc.metadata["source"]].append(doc.page_content)
 
             # Riorganizza le fonti per documento con link per ogni pagina
             doc_pages = defaultdict(list)
@@ -176,6 +223,23 @@ def chatbot_response(query, history):
                 doc_pages[doc_name].append((page, snippet))
 
 
+            # Ottieni la spiegazione dei documenti
+            explanation_text = explain_relevance(source_to_contents, query)
+            explanation_map = {}  # Mappa {doc_name -> spiegazione}
+            current_doc = None
+
+            # Estrai le spiegazioni per ciascun documento
+            for line in explanation_text.split("\n"):
+                # Cerca una riga che contiene "Document:" o "Documento:", anche con simboli o Markdown
+                match = re.search(r"[Dd]ocument(?:o)?:\s*([^\*\n]+\.pdf)", line)
+                if match:
+                    current_doc = match.group(1).strip()
+                    explanation_map[current_doc] = ""
+                elif current_doc:
+                    explanation_map[current_doc] += line.strip() + " "
+            
+            
+
             sources_text = ""
             for doc_name, pages in doc_pages.items():
                 sorted_pages = sorted(set(pages), key=lambda x: x[0])
@@ -183,10 +247,13 @@ def chatbot_response(query, history):
                     f"[pag.{page}](http://localhost:8080/viewer.html?file={quote(doc_name)}&page={page}&highlight={double_url_encode(snippet)})"
                     for page, snippet in sorted_pages
                 ])
-                title_document=doc_name[:70]+"..."
-                sources_text += f"🔹 {title_document}: {page_links}\n"
+                title_document = doc_name[:70] + "..."
+                explanation = explanation_map.get(doc_name, "Nessuna spiegazione disponibile.")
+                sources_text += f"🔹 {title_document}: {page_links}\n🔸 {explanation}\n\n"
+
 
             total_answer = answer + "\n\n" + sources_text
+            
         else:
           total_answer = answer  
     else:
@@ -207,11 +274,11 @@ def chatbot_response(query, history):
 def upload_and_process_files(file_list):
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "HOST_NAME",
-        database = "DB_NAME",
-        user = "USER_NAME",
-        password = "PASSWORD",
-        port = "PORT_NUMBER"
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432"
     )
     
     if not file_list:
@@ -232,21 +299,18 @@ def upload_and_process_files(file_list):
                                 
             value = sv_rec.save_pdfs(file_path=file_path, option='N', cursor=cursor, table_name=TABLE_NAME,embedding_model=embedding_model, conn=conn)
 
-            if value == None:
-                if len(file_name) > 40: output_non_elaborati.append(str(file_name[:40]+"...")) #per evitare formattazioni in uscita non carine, se il filename è più lungo di 40 caratteri lo tronco
-                else: output_non_elaborati.append(str(file_name))
+            if value is None:
+                output_non_elaborati.append(str(file_name))
                 
             else:
-                if len(file_name) > 40: output_elaborati.append(str(file_name[:40]+"...")) #per evitare formattazioni in uscita non carine, se il filename è più lungo di 40 caratteri lo tronco
-                else: output_elaborati.append(str(file_name))
+                output_elaborati.append(str(file_name))
                 base_path = os.getcwd()  # path corrente
                 subfolder = "pdf_files" # nome cartella dei pdfs
                 destination_folder = os.path.join(base_path, subfolder)
                 rename_move.rename_and_move_single_pdf(file_path = file_path, destination_folder = destination_folder)
                     
         except Exception as e:
-            if len(file_name) > 40: output_non_elaborati.append(str(file_name[:40]+"...")) #per evitare formattazioni in uscita non carine, se il filename è più lungo di 40 caratteri lo tronco
-            else: output_non_elaborati.append(str(file_name))
+            output_non_elaborati.append(str(file_name))
             
 
     DB.save_changes(conn)
@@ -259,35 +323,60 @@ def upload_and_process_files(file_list):
             + "\n".join(output_non_elaborati)
             )
 
+
+
+with gr.Blocks(fill_height=True) as chatbot_ui:
+    
+    gr.Markdown("<h2 style='text-align: center;'> GenderMoRe Chatbot</h2>")
+    gr.ChatInterface(
+
+        fn = chatbot_response,
+        fill_height=True,fill_width=True,
+        type = 'messages',
+        show_progress ='minimal',
+        save_history = True,
+        flagging_mode = "manual"
+        #atoscroll=True
+
+    )
+
+with gr.Blocks(fill_height=True) as upload_ui:
+    
+    gr.Markdown("<h2 style='text-align: center;'>Caricamento Documenti</h2>")
+
+    file_input = gr.File(
+        file_types = [".pdf"],
+        file_count = "multiple",
+        label="Inserisci i PDF",
+        height="height:50%"
+    )
+
+    output_box = gr.Textbox(
+        label="🔔 Stato caricamento",
+        lines=15,
+        max_lines=15,
+        show_copy_button=True
+    )
+
+    with gr.Row():
+        clear_button = gr.Button(value="Clear all")
+        upload_button = gr.Button(value="Submit")
         
 
-# Gradio Interface
-chatbot_ui = gr.ChatInterface(
+    upload_button.click(
+        fn=upload_and_process_files,
+        inputs=file_input,
+        outputs=output_box
+    )
 
-    fn = chatbot_response,
-    fill_height=True,fill_width=True,
-    type = 'messages',
-    title = "🕷️RAG Chatbot🕷️",
-    show_progress ='full',
-    save_history = True,
-    flagging_mode = "manual"
+    def clear_all():
+        return None, ""
 
-)
-
-
-upload_ui = gr.Interface(
-    fn = upload_and_process_files,
-    fill_height=True,fill_width=True,
-    inputs=gr.File(
-        file_types=[".pdf"],
-        file_count="multiple",
-        label="Inserisci i PDF"
-    ),
-    outputs=gr.Textbox(label="🔔 Stato caricamento"),
-    title="Caricamento Documenti",
-    allow_flagging="never"
-)
-
+    clear_button.click(
+        fn=clear_all,
+        inputs=[],
+        outputs=[file_input, output_box]
+    )
 
 if __name__ == "__main__":
 
@@ -306,9 +395,11 @@ if __name__ == "__main__":
     
     #chatbot_ui.launch()
     with gr.Blocks(
+        
         theme='allenai/gradio-theme', 
         fill_height=True,
         fill_width=True, 
+        title="GenderMoRe Chatbot",
         css="""
                     html, body, #root, .gradio-container {
                         height: 100% !important;
@@ -316,7 +407,7 @@ if __name__ == "__main__":
                         padding: 0;
                     }
                     .gradio-container {
-                        display: flex;
+                        display:flex;
                         flex-direction: column;
                     }
                     main {
@@ -333,4 +424,3 @@ if __name__ == "__main__":
     demo.launch()
 
         
-
