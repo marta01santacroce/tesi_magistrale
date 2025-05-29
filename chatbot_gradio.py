@@ -22,13 +22,6 @@ import docker
 
 warnings.filterwarnings("ignore")
  
-#per verificare l'input/output dell'llm 
-
-tracer_provider = register(
-    project_name="prova_marta",
-    endpoint="http://localhost:6006/v1/traces",
-)
-
 
 # docker connessione
 client_docker = docker.from_env()
