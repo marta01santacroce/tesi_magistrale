@@ -72,3 +72,11 @@ Assicurati di avere installato:
 - Le librerie specificate in `requirements.txt`
 
 
+## ⚙️ Configurazione Variabili d'Ambiente
+
+Per far funzionare correttamente il progetto, è necessario creare un file `.env` nella directory principale e definire la chiave API di OpenAI con la variabile:
+
+```env
+OPENAI_API_KEY=la_tua_chiave_openai
+
+
