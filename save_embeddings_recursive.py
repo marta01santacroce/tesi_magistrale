@@ -174,11 +174,11 @@ def save_pdfs(file_path, option,cursor,table_name,embedding_model,conn):
 if __name__ == "__main__":
 
     cursor, conn = DB.connect_db( 
-         host = "HOST_NAME",
-        database = "DB_NAME",
-        user = "USER_NAME",
-        password = "PASSWORD",
-        port = "PORT_NUMBER")
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432")
     
     # Modello per embeddings
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")

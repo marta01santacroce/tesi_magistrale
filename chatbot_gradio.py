@@ -22,10 +22,13 @@ import docker
 
 warnings.filterwarnings("ignore")
  
+#per verificare l'input/output dell'llm 
+
 tracer_provider = register(
     project_name="prova_marta",
     endpoint="http://localhost:6006/v1/traces",
 )
+
 
 # docker connessione
 client_docker = docker.from_env()
@@ -126,11 +129,11 @@ def retrieve_documents(query):
 
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "HOST_NAME",
-        database = "DB_NAME",
-        user = "USER_NAME",
-        password = "PASSWORD",
-        port = "PORT_NUMBER"
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432"
     )
     """Recupera i documenti più rilevanti dal database basandosi sulla query dell'utente."""
 
@@ -163,7 +166,7 @@ def retrieve_documents(query):
 
 
 def explain_relevance(source_to_contents, query):
-    explanation_prompt = [{"role": "system", "content": "You are a helpful assistant that explains why each document was considered relevant."}]
+    explanation_prompt = [{"role": "system", "content": "You are a helpful assistant that explains why each document was considered relevant.For each document you answer with: 'Document: file_name.pdf explanation'"}]
     
     user_content = "Given the user query:\n\n" + query + "\n\nExplain why each document is relevant:\n"
 
@@ -249,6 +252,7 @@ def chatbot_response(query, history):
                 ])
                 title_document = doc_name[:70] + "..."
                 explanation = explanation_map.get(doc_name, "Nessuna spiegazione disponibile.")
+                explanation=re.sub(r'^[^a-zA-Z]*', '', explanation)
                 sources_text += f"🔹 {title_document}: {page_links}\n🔸 {explanation}\n\n"
 
 
@@ -272,14 +276,13 @@ def chatbot_response(query, history):
 
 
 def upload_and_process_files(file_list):
-
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "HOST_NAME",
-        database = "DB_NAME",
-        user = "USER_NAME",
-        password = "PASSWORD",
-        port = "PORT_NUMBER"
+        host = "localhost",
+        database = "rag_db",
+        user = "rag_user",
+        password = "password",
+        port = "5432"
     )
     
     if not file_list:
