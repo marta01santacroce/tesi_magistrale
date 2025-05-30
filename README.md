@@ -44,6 +44,16 @@ OSSERVAZIONI:
     b) 'Y' se si vuole inizializzare il DB OPPURE 'N' se non si vuole inizializzare il DB e solo aggiungere dei nuovi file a quelli già presenti
 
 - La tabella che crea\aggiorna è nominata come  ```python TABLE_NAME = 'embeddings_recursive'``` nel file python. Se si vuole cambiare il nome della tabella bisogna agire sul codice
+- La tabella viene creata dalla seguente funzione da cui si evince la struttura:
+  ```python
+  def create_table(cursor,table_name):
+      cursor.execute(f"""CREATE TABLE {table_name} (id SERIAL PRIMARY KEY,content TEXT,
+                                                    embedding VECTOR(1024), source TEXT,
+                                                    page_number INT, language TEXT,
+                                                    tsv_content tsvector DEFAULT NULL, hash_value TEXT)
+                      """
+                   )
+  ```
 
 ## 🚀 Avvio del sistema
 
