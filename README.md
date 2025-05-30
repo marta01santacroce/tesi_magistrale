@@ -68,7 +68,7 @@ Il file `update_name_pdf_and_move_folder.py` si occupa di:
 ## ✅ Requisiti
 Assicurati di avere installato:
 
-- Python 3.8+
+- Python 3.10 (il sistema è stato testato con questa versione e non viene quindi assiucrato il funzionamento con versioni precedenti)
 - Le librerie specificate in `requirements.txt`
 
 
