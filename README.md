@@ -74,9 +74,37 @@ Assicurati di avere installato:
 
 ## ⚙️ Configurazione Variabili d'Ambiente
 
-Per far funzionare correttamente il progetto, è necessario creare un file `.env` nella directory principale e definire la chiave API di OpenAI con la variabile:
+Per far funzionare correttamente il progetto, è necessario creare un file `.env` nella directory principale e definire:
+
+- la chiave API di OpenAI con la variabile:
 
 ```env
 OPENAI_API_KEY=la_tua_chiave_openai
+```
 
+- i nomi per le variabili di connessione al database:
+
+```env
+HOST_NAME = nome_host
+DATABASE_NAME = nome_database
+USER_NAME = nome_utente
+PASSWORD = password
+PORT = numero_porta
+```
+Per caricare le variabili presenti nel file `.env` si usa la parte di codice già presente, ossia:
+```python
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(override=True)
+# Retrieve your API key from your .env file
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+#parametri  di connessione al DB
+HOST_NAME = os.getenv("HOST_NAME")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
+USER_NAME = os.getenv("USER_NAME")
+PASSWORD = os.getenv("PASSWORD")
+PORT = os.getenv("PORT")
+
+```
 
