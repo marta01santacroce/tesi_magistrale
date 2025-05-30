@@ -34,7 +34,16 @@ Questo progetto implementa un sistema RAG (*Retrieval-Augmented Generation*) bas
 
 ---
 ## 🛢️ DataBase 
-Gestione del container docker con le istanze in PgVector (sezione in fase di modifica)
+Per popolare il database con i chunk ottenuti in recursive splitting:
+` python save_embeddings_recursive.py path_name  Y`\
+OSSERVAZIONI:
+- Parametri da passare in fase di esecuzione:
+
+    a) il path della cartella contenente i file pdf da memorizzare OPPURE il path del singolo file pdf da memorizzare
+
+    b) 'Y' se si vuole inizializzare il DB OPPURE 'N' se non si vuole inizializzare il DB e solo aggiungere dei nuovi file a quelli già presenti
+
+- La tabella che crea\aggiorna è nominata come  ```python TABLE_NAME = 'embeddings_recursive'``` nel file python. Se si vuole cambiare il nome della tabella bisogna agire sul codice
 
 ## 🚀 Avvio del sistema
 
