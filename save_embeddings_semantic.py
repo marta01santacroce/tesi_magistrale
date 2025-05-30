@@ -10,9 +10,19 @@ from langdetect.lang_detect_exception import LangDetectException
 import DB
 import time
 from tqdm import tqdm
-from sentence_transformers import SentenceTransformer
+from dotenv import load_dotenv
 
 TABLE_NAME = 'embeddings_semantic_splitter_percentile'
+
+# Load environment variables from .env file
+load_dotenv(override=True)
+
+#parametri  di connessione al DB
+HOST_NAME = os.getenv("HOST_NAME")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
+USER_NAME = os.getenv("USER_NAME")
+PASSWORD = os.getenv("PASSWORD")
+PORT = os.getenv("PORT")
 
 # Dizionario con sigle delle lingue e i nomi delle lingue supportate
 language_dict = {
@@ -58,13 +68,14 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    cursor, conn = DB.connect_db( 
-         host = "HOST_NAME",
-        database = "DB_NAME",
-        user = "USER_NAME",
-        password = "PASSWORD",
-        port = "PORT_NUMBER")
-
+    cursor, conn = DB.connect_db(
+        host = HOST_NAME,
+        database = DATABASE_NAME,
+        user = USER_NAME,
+        password = PASSWORD,
+        port = PORT
+    )
+    
     if sys.argv[2] == 'Y':
         DB.drop_table(cursor, table_name=TABLE_NAME)
         DB.create_table(cursor, table_name=TABLE_NAME)

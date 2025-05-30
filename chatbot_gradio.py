@@ -22,6 +22,13 @@ import docker
 
 warnings.filterwarnings("ignore")
  
+# per verificare l'input/output dell'llm 
+
+tracer_provider = register(
+    project_name="prova_marta",
+    endpoint="http://localhost:6006/v1/traces",
+)
+
 
 # docker connessione
 client_docker = docker.from_env()
@@ -42,12 +49,20 @@ load_dotenv(override=True)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI()
 
+#parametri  di connessione al DB
+HOST_NAME = os.getenv("HOST_NAME")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
+USER_NAME = os.getenv("USER_NAME")
+PASSWORD = os.getenv("PASSWORD")
+PORT = os.getenv("PORT")
+
+
 CHUNK_SIZE=512
 
 TABLE_NAME = 'embeddings_recursive' # nome della tabella da cui effettuare la ricerca ibrida -> 
 # CAMBIARE IL NOME DELLA TABELLA DI INTERESSE!!!!! -> 
-    # embeddings -> usa recursive character splitter
-    # embeddings_recursive -> usa recursive character splitter v2
+    
+    # embeddings_recursive -> usa recursive character splitter 
     # embeddings_character_splitter -> usa character splitter
     # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
 
@@ -64,12 +79,12 @@ message_history = ChatMessageHistory()
 # RAG Prompt Template with context
 prompt_rag_context = [
     {"role": "developer", 
-     "content": "You are an AI assistant specialized in answering questions based on the provided context.\n"
+     "content": "You are an AI assistant specialized in answering questions based on  the past history and the provided context.\n"
     "Follow these guidelines:\n"
-    "- Use only the given context to generate your answer.\n"
+    "- Use only the given context and previus coversation to generate your answer.\n"
     "- Provide a clear and relevant response. Avoid unnecessary details.\n"
     "- Do NOT mention the context, sources, or any document references in your response.\n"
-    "- If you cannot answer based on the context, reply with exactly the following message:\n"
+    "- If you cannot answer reply with exactly the following message:\n"
             "\"I'm sorry but I could not find any relevant documents to answer your query.\n"
             "Try rephrasing the query or ask me something more specific.\n"
             "If you want a more in-depth explanation of the previous answer, take up the question you asked and ask me explicitly.\"\n"
@@ -79,13 +94,13 @@ prompt_rag_context = [
      "content": "Previous conversation:\n{chat_history}\n---\nHere is the relevant context:\n{context}\n---\nNow, answer the following question based strictly on the context and on previous conversation .\n\nQuestion: {question}"},
 ]
 
-'''
+
 # RAG Prompt Template no context
 prompt_rag_no_context = [
-    {"role": "developer", "content": "You are an AI assistant specialized in answering questions based on the past history.Provide a clear and relevant response. Avoid unnecessary details.\n"},
+    {"role": "developer", "content": "You are an AI assistant specialized in answering questions based on the past history and past context.Provide a clear and relevant response. Avoid unnecessary details.\n"},
     {"role": "user", "content": "Previous conversation:\n{chat_history}\n---\nNow, answer the following question based on previous conversation and your konwladge .\n\nQuestion: {question}"}
 ]
-'''
+
 def normalize(text):
     return " ".join(text.strip().lower().split())
 
@@ -122,11 +137,11 @@ def retrieve_documents(query):
 
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "localhost",
-        database = "rag_db",
-        user = "rag_user",
-        password = "password",
-        port = "5432"
+        host = HOST_NAME,
+        database = DATABASE_NAME,
+        user = USER_NAME,
+        password = PASSWORD,
+        port = PORT
     )
     """Recupera i documenti più rilevanti dal database basandosi sulla query dell'utente."""
 
@@ -196,9 +211,6 @@ def chatbot_response(query, history):
 
     total_answer = ""
 
-
-
-
     
     if retrieved_docs_text:
         answer = gpt_generate(chat_history, query, prompt_rag_context, context)
@@ -254,28 +266,32 @@ def chatbot_response(query, history):
         else:
           total_answer = answer  
     else:
-        #answer = gpt_generate(chat_history, query, prompt_rag_no_context, context)
+        answer = gpt_generate(chat_history, query, prompt_rag_no_context, context)
         # Template di risposta nel caso non venga trovato alcun documento
-        #total_answer = answer
+        total_answer = answer
 
-        total_answer = no_docs_template
-        answer = total_answer
+        #total_answer = no_docs_template
+        #answer = total_answer
 
     # Update message history
     message_history.add_user_message(query)
-    message_history.add_ai_message(answer)
+    #message_history.add_ai_message(answer)
+
+    message_history.add_ai_message(answer + "\n\n" + context)
 
     return [{"role": "assistant", "content": total_answer}]
 
 
 def upload_and_process_files(file_list):
+    
     # Load database connection
+
     cursor, conn = DB.connect_db(
-        host = "localhost",
-        database = "rag_db",
-        user = "rag_user",
-        password = "password",
-        port = "5432"
+        host = HOST_NAME,
+        database = DATABASE_NAME,
+        user = USER_NAME,
+        password = PASSWORD,
+        port = PORT
     )
     
     if not file_list:

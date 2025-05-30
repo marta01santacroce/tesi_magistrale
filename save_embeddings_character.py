@@ -8,11 +8,22 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
 import DB
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(override=True)
 
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 10
 
 TABLE_NEME = "embeddings_character_splitter"
+
+#parametri  di connessione al DB
+HOST_NAME = os.getenv("HOST_NAME")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
+USER_NAME = os.getenv("USER_NAME")
+PASSWORD = os.getenv("PASSWORD")
+PORT = os.getenv("PORT")
 
 # Dizionario con sigle delle lingue e i nomi delle lingue supportate
 language_dict = {
@@ -51,12 +62,13 @@ Parametri da passare in fase di esecuzione:
 '''
 if __name__ == "__main__":
 
-    cursor, conn = DB.connect_db( 
-         host = "HOST_NAME",
-        database = "DB_NAME",
-        user = "USER_NAME",
-        password = "PASSWORD",
-        port = "PORT_NUMBER")
+    cursor, conn = DB.connect_db(
+        host = HOST_NAME,
+        database = DATABASE_NAME,
+        user = USER_NAME,
+        password = PASSWORD,
+        port = PORT
+    )
     
     # Modello per embeddings
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")

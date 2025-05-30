@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 import pymupdf
 import sys
 from pathlib import Path
@@ -13,6 +14,16 @@ from tqdm import tqdm
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 10
 TABLE_NAME = 'embeddings_recursive'
+
+# Load environment variables from .env file
+load_dotenv(override=True)
+
+#parametri  di connessione al DB
+HOST_NAME = os.getenv("HOST_NAME")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
+USER_NAME = os.getenv("USER_NAME")
+PASSWORD = os.getenv("PASSWORD")
+PORT = os.getenv("PORT")
 
 # Dizionario con sigle delle lingue e i nomi delle lingue supportate
 language_dict = {
@@ -173,12 +184,14 @@ def save_pdfs(file_path, option,cursor,table_name,embedding_model,conn):
 
 if __name__ == "__main__":
 
-    cursor, conn = DB.connect_db( 
-        host = "localhost",
-        database = "rag_db",
-        user = "rag_user",
-        password = "password",
-        port = "5432")
+    # Load database connection
+    cursor, conn = DB.connect_db(
+        host = HOST_NAME,
+        database = DATABASE_NAME,
+        user = USER_NAME,
+        password = PASSWORD,
+        port = PORT
+    )
     
     # Modello per embeddings
     embedding_model = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")

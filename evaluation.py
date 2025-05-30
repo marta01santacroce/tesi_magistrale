@@ -22,9 +22,17 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI()
 
+#parametri  di connessione al DB
+HOST_NAME = os.getenv("HOST_NAME")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
+USER_NAME = os.getenv("USER_NAME")
+PASSWORD = os.getenv("PASSWORD")
+PORT = os.getenv("PORT")
+
 TABLE_NAME = 'embeddings_semantic_splitter_percentile' # nome della tabella da cui effettuare la ricerca ibrida -> 
 # CAMBIARE IL NOME DELLA TABELLA DI INTERESSE!!!!! -> 
     # embeddings -> usa recursive character splitter
+    # embeddings_recursive -> usa recursive character splitter v2
     # embeddings_character_splitter -> usa character splitter
     # embeddings_semantic_splitter_percentile -> usa semantic splitter con percentile come breakpoint_threshold_type
 
@@ -139,11 +147,11 @@ if __name__ == "__main__":
         
     # Load database connection
     cursor, conn = DB.connect_db(
-        host = "HOST_NAME",
-        database = "DB_NAME",
-        user = "USER_NAME",
-        password = "PASSWORD",
-        port = "PORT_NUMBER"
+        host = HOST_NAME,
+        database = DATABASE_NAME,
+        user = USER_NAME,
+        password = PASSWORD,
+        port = PORT
     )
     print("DEBUG--DataBase connected\n")
     # Load dataset
