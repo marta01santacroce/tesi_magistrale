@@ -71,13 +71,14 @@ Questo script utilizza i seguenti moduli fondamentali:
   per formattare i nomi dei file PDF e copiarli correttamente nella cartella dedicata.
 
 ## 📂 Cartella pdf_files
+
 Assicurati che nella directory principale del progetto sia presente una cartella chiamata pdf_files/.
-Tutti i documenti PDF utilizzati dal sistema verranno inseriti in questa cartella dopo l'upload tramite interfaccia.
-A causa delle dimensioni, la cartella `pdf_files/` con i file correnti nel databse non è presente nel repository.  
+
+Tutti i documenti PDF utilizzati dal sistema verranno inseriti in questa cartella dopo l'upload tramite interfaccia o dopo il primo caricamento nel DB tramite lo script python citato precedentemente nella sezione 'DataBase'.
+A causa delle dimensioni, la cartella `files_da_caricare/` con i file da caricare inizialmente nel databse non è presente nel repository.  
 Puoi scaricarla da Google Drive al seguente link:
 🔗 [Scarica pdf_files da Google Drive](https://drive.google.com/file/d/1Nzn8ZO0bOhIyewmZWZIPRk4Gnsp-zeiw/view?usp=drive_link)
 
-Dopo aver scaricato la cartella, posizionala nella directory principale del progetto.
 
 Il file `update_name_pdf_and_move_folder.py` si occupa di:
 
