@@ -85,6 +85,9 @@ Il file `update_name_pdf_and_move_folder.py` si occupa di:
 - Rinominare i file PDF secondo il formato richiesto da Gradio
 - Copiarli automaticamente nella cartella pdf_files/
 
+## ❗ Osservazione
+Porre molta attenzione alla qualità dei dati di input: evitare documenti duplicati nel contenuto (il sistema verifica solo che il nome del documento che si vuole inserire non sia già presente), definire un nome del file che sia privo di caratteri particolari (evitare i '.' nel nome) e *spazi* (usare '_' invece degli spazi), accertarsi che il formato del documento sia pdf e che non sia corrotto (no scansioni/foto), dare un nome al docuemnto significativo e che non sia eccessivamente lungo (limitati a 200 caratteri masssimo)...
+
 ## ✅ Requisiti
 Assicurati di avere installato:
 
