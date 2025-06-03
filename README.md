@@ -3,7 +3,7 @@
 
 Questo progetto implementa un sistema RAG (*Retrieval-Augmented Generation*) basato su modelli LLM di OpenAI e un database vettoriale gestito tramite PGVector.
 
-## 🗂️ File principali
+## 🗂️ File principali nel repository
 
 - `chatbot_gradio.py`  
   Codice per l'interfaccia del chatbot sviluppata con Gradio e basata su LLM (GPT-4o-mini) di OpenAI.
@@ -102,7 +102,7 @@ Per far funzionare correttamente il progetto, è necessario creare un file `.env
 - la chiave API di OpenAI con la variabile:
 
 ```env
-OPENAI_API_KEY=la_tua_chiave_openai
+OPENAI_API_KEY = la_tua_chiave_openai
 ```
 
 - i nomi per le variabili di connessione al database:
