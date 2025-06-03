@@ -79,7 +79,7 @@ message_history = ChatMessageHistory()
 # RAG Prompt Template with context
 prompt_rag_context = [
     {"role": "developer", 
-     "content": "You are an AI assistant specialized in answering questions based on  the past history and the provided context.\n"
+     "content": "You are an AI assistant specialized in answering questions based on the past history and the provided context.\n"
     "Follow these guidelines:\n"
     "- Use only the given context and previus coversation to generate your answer.\n"
     "- Provide a clear and relevant response. Avoid unnecessary details.\n"
@@ -174,8 +174,16 @@ def retrieve_documents(query):
 
 
 def explain_relevance(source_to_contents, query):
-    explanation_prompt = [{"role": "system", "content": "You are a helpful assistant that explains why each document was considered relevant.For each document you answer with: 'Document: file_name.pdf explanation'"}]
-    
+    explanation_prompt = [{
+    "role": "system",
+    "content": (
+        "You are a helpful assistant that explains why each document was considered relevant. "
+        "For each document, answer exactly in the following format:\n"
+        "Document: file_name.pdf\n"
+        "Explanation: explanation text here\n\n"
+        "Repeat for each document."
+    )
+    }]
     user_content = "Given the user query:\n\n" + query + "\n\nExplain why each document is relevant:\n"
 
     for source, contents in source_to_contents.items():
@@ -238,15 +246,17 @@ def chatbot_response(query, history):
 
             # Estrai le spiegazioni per ciascun documento
             for line in explanation_text.split("\n"):
-                # Cerca una riga che contiene "Document:" o "Documento:", anche con simboli o Markdown
-                match = re.search(r"[Dd]ocument(?:o)?:\s*([^\*\n]+\.pdf)", line)
+                match = re.search(r"[Dd]ocument[:\-–]?\s*([^\s]+?\.pdf)", line)
                 if match:
                     current_doc = match.group(1).strip()
                     explanation_map[current_doc] = ""
                 elif current_doc:
+                    # Considera anche se la riga inizia con "Explanation:"
+                    line = re.sub(r'^Explanation:\s*', '', line, flags=re.I)
                     explanation_map[current_doc] += line.strip() + " "
             
             
+            print("DEBUG: \n" + str(explanation_map.keys))
 
             sources_text = ""
             for doc_name, pages in doc_pages.items():
@@ -257,7 +267,10 @@ def chatbot_response(query, history):
                 ])
                 title_document = doc_name[:70] + "..."
                 explanation = explanation_map.get(doc_name, "Nessuna spiegazione disponibile.")
-                explanation=re.sub(r'^[^a-zA-Z]*', '', explanation)
+
+                print(doc_name)
+
+                explanation = re.sub(r'^[^a-zA-Z]*', '', explanation)
                 sources_text += f"🔹 {title_document}: {page_links}\n🔸 {explanation}\n\n"
 
 
