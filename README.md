@@ -86,8 +86,7 @@ Il file `update_name_pdf_and_move_folder.py` si occupa di:
 - Copiarli automaticamente nella cartella pdf_files/
 
 ## ❗ Osservazione
-Porre molta attenzione alla qualità dei dati di input: evitare documenti duplicati nel contenuto (il sistema verifica solo che il nome del documento che si vuole inserire non sia già presente), definire un nome del file che sia privo di caratteri particolari (evitare i '.' nel nome) e *spazi* (usare '_' invece degli spazi), accertarsi che il formato del documento sia pdf e che non sia corrotto (no scansioni/foto), dare un nome al docuemnto significativo e che non sia eccessivamente lungo (limitati a 200 caratteri masssimo)...
-
+Porre molta attenzione alla qualità dei dati di input: evitare documenti duplicati nel contenuto (il sistema verifica solo che il nome del documento che si vuole inserire non sia già presente), definire un nome del file che sia privo di caratteri particolari (evitare i '.' nel nome) e *spazi* (usare '_' invece degli spazi), accertarsi che il formato del documento sia pdf e che non sia corrotto (no scansioni/foto), dare un nome al docuemnto significativo e che non sia eccessivamente lungo (limitati a 200 caratteri masssimo).. Inoltre è consigliato caricare un numero limitato di nuovi file nella schermata a ogni round  (circa 5 alla volta).
 ## ✅ Requisiti
 Assicurati di avere installato:
 
@@ -122,7 +121,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 # Retrieve your API key from your .env file
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-#parametri  di connessione al DB
+# Parametri  di connessione al DB
 HOST_NAME = os.getenv("HOST_NAME")
 DATABASE_NAME = os.getenv("DATABASE_NAME")
 USER_NAME = os.getenv("USER_NAME")
