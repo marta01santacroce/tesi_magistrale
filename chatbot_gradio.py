@@ -24,13 +24,17 @@ warnings.filterwarnings("ignore")
  
 # per verificare l'input/output dell'llm 
 
+'''
+
 tracer_provider = register(
     project_name="prova_marta",
     endpoint="http://localhost:6006/v1/traces",
 )
+OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
+'''
 
-
-# docker connessione
+# per aprire una  connessione docker automatica al container postgres_pgvector
+'''
 client_docker = docker.from_env()
 
 container = client_docker.containers.get("postgres_pgvector")
@@ -41,8 +45,8 @@ if container.status != "running":
 else:
     print(f"Il container {container.name} è già in esecuzione.")
 
+'''
  
-OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
 # Load environment variables from .env file
 load_dotenv(override=True)
 # Retrieve your API key from your .env file
@@ -256,8 +260,6 @@ def chatbot_response(query, history):
                     explanation_map[current_doc] += line.strip() + " "
             
             
-            print("DEBUG: \n" + str(explanation_map.keys))
-
             sources_text = ""
             for doc_name, pages in doc_pages.items():
                 sorted_pages = sorted(set(pages), key=lambda x: x[0])
@@ -266,9 +268,7 @@ def chatbot_response(query, history):
                     for page, snippet in sorted_pages
                 ])
                 title_document = doc_name[:70] + "..."
-                explanation = explanation_map.get(doc_name, "Nessuna spiegazione disponibile.")
-
-                print(doc_name)
+                explanation = explanation_map.get(doc_name.strip(), "Nessuna spiegazione disponibile.")
 
                 explanation = re.sub(r'^[^a-zA-Z]*', '', explanation)
                 sources_text += f"🔹 {title_document}: {page_links}\n🔸 {explanation}\n\n"
