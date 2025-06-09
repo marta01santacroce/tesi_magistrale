@@ -70,6 +70,25 @@ Questo script utilizza i seguenti moduli fondamentali:
 - `update_name_pdf_and_move_folder.py`
   per formattare i nomi dei file PDF e copiarli correttamente nella cartella dedicata.
 
+#### ▶️ Funzionamento
+
+1) Schermata del chatbot:
+   - inserisci la query nello spazio in basso e premi il pulsante laterale destro per inviare la domanda
+   - attendi che il sistema elabori la domanda per leggere la risposta nella schermata centrale
+   - clicca sui links riportati in output per aprire i documenti da cui è stata estrapolata la risposta (in alcuni casi non riesce a evidenziare l'estratto preciso consultato dal pdf a causa di formattazioni        non lineari del documento)
+   - per avviare una nuova chat clicca sul pulsante in alto a sinistra
+   - per scorrere da una conversazione a un altra, sempre a sinistra della schermata, è riportato l'elenco delle chat attive
+2) Schermata caricamento file:
+   - clicca sul primo riquadro per caricare i pdfs (è altamente consigliato max 5 pdfs alla volta)
+   - clicca sul pulsante 'submit' per avviare il processo
+     ⚠️**OSS**: dopo aver cliccato il pulsante di caricamento, non è possibile al momento interrompere il processo. Fai attenzione a ciò che carichi!
+   - attendi che il caricamneto sia completo e visualizza l'output del caricamento nel secondo blocco. Abbi pazienza... il tempo di esecuzione varia in base alle dimensioni dei documenti da salvare.
+   - il pulsante 'Clear All' ha solo il compito di ripulire **visivamente** la schermata. **NON** interrompe il caricamento ma cancella solo i testi nella schermata
+   - mentre attendi il caricamento, puoi ritorare nella schermata del chatbot e continuare la conversazione.
+ 3) In questa prima versione non considerare ulteriori tasti/azioni presenti nella schermata. 
+   
+
+
 ## 📂 Cartella pdf_files
 
 Assicurati che nella directory principale del progetto sia presente una cartella chiamata pdf_files/.
@@ -85,7 +104,7 @@ Il file `update_name_pdf_and_move_folder.py` si occupa di:
 - Rinominare i file PDF secondo il formato richiesto da Gradio
 - Copiarli automaticamente nella cartella pdf_files/
 
-## ❗ Osservazione
+#### ❗ Osservazione
 Porre molta attenzione alla qualità dei dati di input: evitare documenti duplicati nel contenuto (il sistema verifica solo che il nome del documento che si vuole inserire non sia già presente), definire un nome del file che sia privo di caratteri particolari (evitare i '.' nel nome) e *spazi* (usare '_' invece degli spazi), accertarsi che il formato del documento sia pdf e che non sia corrotto (no scansioni/foto), dare un nome al docuemnto significativo e che non sia eccessivamente lungo (limitati a 200 caratteri masssimo).. Inoltre è consigliato caricare un numero limitato di nuovi file nella schermata a ogni round  (circa 5 alla volta).
 ## ✅ Requisiti
 Assicurati di avere installato:
