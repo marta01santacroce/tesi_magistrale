@@ -157,4 +157,31 @@ PASSWORD = os.getenv("PASSWORD")
 PORT = os.getenv("PORT")
 
 ```
+## 🧩 Clustering Intra-Documenti e Nuova Pipeline di Caricamento
+
+Sono presenti nuovi script specifici per il caricamento dei documenti, il salvataggio degli embeddings e il clustering intra-documento, da tenere in considerazione se si vuole modificare il sistema di splitting e caricamento attuale.
+
+- **save_embeddings_cluster_intra_doc.py**  
+  Salva i documenti nel database usando uno splitter ricorsivo (recursive splitter) per suddividere i documenti in chunk più piccoli.  
+  Applica poi l’algoritmo di clustering **HDBSCAN** all’interno dei singoli documenti, per raggruppare chunk semanticamente simili.  
+  Utilizza vettori di **1024 componenti** e **non fa uso di PCA**, perché è pensato per il caricamento diretto e il clustering immediato, senza riduzione dimensionale (puoi modifcarlo se necessario).
+
+- **DB_for_cluster.py**  
+  Gestisce le interazioni con il database vettoriale relative al clustering intra-documento, usato da `save_embeddings_cluster_intra_doc.py`.
+
+- **search_with_cluster.py**  
+  Script per effettuare ricerche semantiche sui chunk clusterizzati, usando il vettore combinato (combined_embedding) prodotto in fase di caricamento e clustering.
+
+---
+
+### Importante  
+Se si vuole modificare l’attuale implementazione del recursive splitting presente in `chatbot_gradio.py`, bisogna considerare l’integrazione di questi nuovi file (`save_embeddings_cluster_intra_doc.py`, `DB_for_cluster.py`, `search_with_cluster.py`) e aggiornare il codice di `chatbot_gradio.py` di conseguenza, per mantenere coerenza con il caricamento, il clustering e la ricerca intra-documento.
+
+---
+
+In breve:  
+- `save_embeddings_cluster_intra_doc.py` = caricamento + splitting + clustering HDBSCAN intra-doc  
+- `DB_for_cluster.py` = gestione DB per clustering intra-doc  
+- `search_with_cluster.py` = ricerca semantica sui chunk clusterizzati  
+- Per modificare splitting in `chatbot_gradio.py` serve integrare questi file
 
