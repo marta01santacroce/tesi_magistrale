@@ -23,8 +23,8 @@ def rerank_results(query, results):
     # Associa i punteggi ai risultati
     reranked_results = sorted(zip(results, scores), key=lambda x: x[1], reverse=True)
 
-    # Restituisce solo i top 10/1000 risultati ordinati
-    return [res for res, _ in reranked_results[:]]
+    # Restituisce solo i top k risultati ordinati
+    return [res for res, _ in reranked_results[:10]]
 
 
 def hybrid_search(cursor,query, query_embedding_str,table_name):
@@ -41,29 +41,9 @@ def hybrid_search(cursor,query, query_embedding_str,table_name):
         FROM {table_name}
         
         ORDER BY rank_semantic DESC
-        LIMIT 2000
-
-    """
-    
-
-    '''
-    #con PCA
-
-    # Definizione della query con limit 20/500
-    query_sql = f"""
-    
-        SELECT source, content, page_number,
-            1 - (combined_embedding_256 <=> %s) / 2 AS rank_semantic
-            
-        FROM {table_name}
-        
-        ORDER BY rank_semantic DESC
         LIMIT 20
 
     """
-    # WHERE  1 - (combined_embedding_256 <=> %s) / 2 > 0.92
-
-    '''    
 
     cursor.execute(query_sql, (query_embedding_str,))
 
