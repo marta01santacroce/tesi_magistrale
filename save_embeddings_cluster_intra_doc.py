@@ -14,12 +14,6 @@ import hdbscan
 import json
 import numpy as np
 from collections import defaultdict
-import logging
-
-
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 CHUNK_SIZE = 512
@@ -309,29 +303,27 @@ def save_pdfs(file_path,cursor,table_name,embedding_model, conn):
                 conn.commit()
 
 
-            logger.info(f"Clustering per documento: {source}")
-
             source = DB.clean_filename_like_gradio(source)
 
             ids, embeddings, hash_value = fetch_embeddings_by_source(cursor, table_name, source)
             if len(embeddings) < 2:
-                logger.warning(f"Numero di embeddings {len(embeddings)} < 2 troppo basso per clustering nel documento '{source}'. Saltato.")
+                print(f"Numero di embeddings {len(embeddings)} < 2 troppo basso per clustering nel documento '{source}'. Saltato.")
                 continue
 
             labels = cluster_embeddings(embeddings)
 
             if set(labels) == {-1}:
-                logger.warning(f"Tutti embeddings in '{source}' sono rumore.")
+                print(f"Tutti embeddings in '{source}' sono rumore.")
                 continue
 
             update_cluster_ids(cursor, table_name, ids, labels, hash_value)
             conn.commit()
             compute_and_update_cluster_embeddings(cursor, table_name, source)
             conn.commit()
-            logger.info(f"Completato clustering per '{source}'")    
+            print(f"Completato clustering per '{source}'")    
         
     
-    
+    print("\nAggiorno i valori degli embedding combinati\n")
     update_combined_embedding(cursor, table_name=TABLE_NAME)
     print(f"{len(chunks)} chunk salvati nel database con embeddings.")
 
