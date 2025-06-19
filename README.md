@@ -166,6 +166,12 @@ Sono presenti nuovi script specifici per il caricamento dei documenti, il salvat
   Applica poi l’algoritmo di clustering **HDBSCAN** all’interno dei singoli documenti, per raggruppare chunk semanticamente simili.  
   Utilizza vettori di **1024 componenti** e **non fa uso di PCA**, perché è pensato per il caricamento diretto e il clustering immediato, senza riduzione dimensionale (puoi modifcarlo se necessario).
 
+    Parametri da passare in fase di esecuzione:
+
+    a) il path della cartella contenente i file pdf da memorizzare OPPURE il path del singolo file pdf da memorizzare
+
+    b) 'Y' se si vuole inizializzare il DB OPPURE 'N' se non si vuole inizializzare il DB e solo aggiungere dei nuovi file a quelli già presenti
+
 - **DB_for_cluster.py**  
   Gestisce le interazioni con il database vettoriale relative al clustering intra-documento, usato da `save_embeddings_cluster_intra_doc.py`.
 
